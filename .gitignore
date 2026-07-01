@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+
+# env files — לעולם לא להעלות לGit
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# קבצים רגישים
+dbpassword.txt
+*.docx
+.claude/
