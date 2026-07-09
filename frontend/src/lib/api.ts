@@ -55,4 +55,14 @@ export const api = {
       return request<any[]>(`/recommendations?${params}`);
     },
   },
+  contactRequests: {
+    incoming: () => request<any[]>('/contact-requests/incoming'),
+    outgoing: () => request<any[]>('/contact-requests/outgoing'),
+    approve: (id: string, contactName: string, relationship: string | null) =>
+      request<any>(`/contact-requests/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ contact_name: contactName, relationship }),
+      }),
+    reject: (id: string) => request<null>(`/contact-requests/${id}/reject`, { method: 'POST' }),
+  },
 };

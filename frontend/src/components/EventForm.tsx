@@ -6,28 +6,49 @@ export interface EventFormValues {
   type: string;
   date: string;
   reminder_days: number;
+  budget_min: number | null;
+  budget_max: number | null;
 }
 
 interface Props {
-  initial?: EventFormValues;
+  initial?: Partial<EventFormValues>;
+  birthDate?: string | null;
   onSubmit: (values: EventFormValues) => Promise<void>;
   onCancel: () => void;
 }
 
-export default function EventForm({ initial, onSubmit, onCancel }: Props) {
+// ממיר תאריך לידה YYYY-MM-DD לאותו יום השנה בשנה הקרובה
+function nextBirthdayDate(birthDate: string): string {
+  const [, month, day] = birthDate.split('-');
+  const today = new Date();
+  const thisYear = today.getFullYear();
+  const candidate = new Date(`${thisYear}-${month}-${day}`);
+  if (candidate < today) candidate.setFullYear(thisYear + 1);
+  return candidate.toISOString().split('T')[0];
+}
+
+export default function EventForm({ initial, birthDate, onSubmit, onCancel }: Props) {
   const [type, setType] = useState(initial?.type ?? 'יום הולדת');
   const [customType, setCustomType] = useState('');
   const [date, setDate] = useState(initial?.date ?? '');
   const [reminderDays, setReminderDays] = useState(initial?.reminder_days ?? 14);
+  const [budgetMin, setBudgetMin] = useState(initial?.budget_min?.toString() ?? '');
+  const [budgetMax, setBudgetMax] = useState(initial?.budget_max?.toString() ?? '');
   const [loading, setLoading] = useState(false);
 
-  // When editing an existing event whose type isn't in the preset list
   useEffect(() => {
-    if (initial && !PRESET_TYPES.includes(initial.type)) {
+    if (initial?.type && !PRESET_TYPES.includes(initial.type)) {
       setType('אחר');
       setCustomType(initial.type);
     }
   }, []);
+
+  // כשבוחרים "יום הולדת" וידוע תאריך לידה — ממלאים אוטומטית
+  useEffect(() => {
+    if (type === 'יום הולדת' && birthDate && !initial?.date) {
+      setDate(nextBirthdayDate(birthDate));
+    }
+  }, [type, birthDate]);
 
   const isOther = type === 'אחר';
   const resolvedType = isOther ? customType.trim() : type;
@@ -36,7 +57,13 @@ export default function EventForm({ initial, onSubmit, onCancel }: Props) {
     e.preventDefault();
     if (isOther && !customType.trim()) return;
     setLoading(true);
-    await onSubmit({ type: resolvedType, date, reminder_days: reminderDays });
+    await onSubmit({
+      type: resolvedType,
+      date,
+      reminder_days: reminderDays,
+      budget_min: budgetMin ? Number(budgetMin) : null,
+      budget_max: budgetMax ? Number(budgetMax) : null,
+    });
     setLoading(false);
   }
 
@@ -55,12 +82,7 @@ export default function EventForm({ initial, onSubmit, onCancel }: Props) {
         />
       )}
 
-      <input
-        type="date"
-        value={date}
-        onChange={e => setDate(e.target.value)}
-        required
-      />
+      <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
 
       <input
         type="number"
@@ -70,6 +92,23 @@ export default function EventForm({ initial, onSubmit, onCancel }: Props) {
         onChange={e => setReminderDays(Math.max(1, Number(e.target.value)))}
         required
       />
+
+      <div className="row">
+        <input
+          type="number"
+          placeholder="תקציב מינימום ₪"
+          value={budgetMin}
+          min={0}
+          onChange={e => setBudgetMin(e.target.value)}
+        />
+        <input
+          type="number"
+          placeholder="תקציב מקסימום ₪"
+          value={budgetMax}
+          min={0}
+          onChange={e => setBudgetMax(e.target.value)}
+        />
+      </div>
 
       <div className="row">
         <button type="submit" disabled={loading}>{loading ? 'שומר...' : 'שמור'}</button>

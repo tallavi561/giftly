@@ -4,6 +4,9 @@ import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
 import type { Contact, Event, Recommendation, UserProfile } from '../types/index.js';
 import EventForm, { type EventFormValues } from '../components/EventForm.js';
+import LocationBirthFields from '../components/LocationBirthFields.js';
+import TagInput from '../components/TagInput.js';
+import { calcAge, formatLocation } from '../lib/utils.js';
 
 const logger = new Logger('ContactPage');
 
@@ -19,8 +22,12 @@ export default function ContactPage() {
   const [showEventForm, setShowEventForm] = useState(searchParams.get('newContact') === 'true');
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingContact, setEditingContact] = useState(false);
-  const [contactForm, setContactForm] = useState({
-    name: '', relationship: '', interests: '', free_text: '', budget_min: '', budget_max: '',
+  const [contactForm, setContactForm] = useState<{
+    name: string; relationship: string; interests: string[]; free_text: string;
+    notes: string; birth_date: string; city: string; country: string;
+  }>({
+    name: '', relationship: '', interests: [], free_text: '', notes: '',
+    birth_date: '', city: '', country: '',
   });
 
   useEffect(() => {
@@ -35,10 +42,12 @@ export default function ContactPage() {
       setContactForm({
         name: c.name,
         relationship: c.relationship ?? '',
-        interests: (c.interests ?? []).join(', '),
+        interests: c.interests ?? [],
         free_text: c.free_text ?? '',
-        budget_min: c.budget_min?.toString() ?? '',
-        budget_max: c.budget_max?.toString() ?? '',
+        notes: c.notes ?? '',
+        birth_date: c.birth_date ?? '',
+        city: c.city ?? '',
+        country: c.country ?? '',
       });
       setEvents(e);
       setRecommendations(r);
@@ -67,13 +76,16 @@ export default function ContactPage() {
     const updated: any = await api.contacts.update(id, {
       name: contactForm.name,
       relationship: contactForm.relationship || null,
-      interests: contactForm.interests.split(',').map(s => s.trim()).filter(Boolean),
+      interests: contactForm.interests,
       free_text: contactForm.free_text || null,
-      budget_min: contactForm.budget_min ? Number(contactForm.budget_min) : null,
-      budget_max: contactForm.budget_max ? Number(contactForm.budget_max) : null,
+      notes: contactForm.notes || null,
+      birth_date: contactForm.birth_date || null,
+      city: contactForm.city || null,
+      country: contactForm.country || null,
     });
     logger.info('Contact updated', { id: updated.id });
-    setContact(updated);
+    // שומרים user_profile מהסטייט הקודם כי ה-PATCH לא מחזיר join
+    setContact(prev => ({ ...updated, user_profile: prev?.user_profile }));
     setEditingContact(false);
   }
 
@@ -97,13 +109,18 @@ export default function ContactPage() {
   const linkedProfile = contact.user_profile as UserProfile | undefined;
   const displayInterests = linkedProfile?.interests?.length ? linkedProfile.interests : contact.interests;
   const displayBio = linkedProfile?.bio ?? contact.free_text;
+  const displayBirthDate = linkedProfile?.birth_date ?? contact.birth_date;
+  const displayCity = linkedProfile?.city ?? contact.city;
+  const displayCountry = linkedProfile?.country ?? contact.country;
+  const age = calcAge(displayBirthDate);
+  const location = formatLocation(displayCity, displayCountry);
   const eventRecs = selectedEvent ? recommendations.filter(r => r.event_id === selectedEvent) : [];
 
   return (
     <div className="page">
       <header>
         <button className="back-btn" onClick={() => navigate('/')}>← חזרה</button>
-        <h1>{contact.name}</h1>
+        <h1>{linkedProfile?.display_name ?? contact.name}</h1>
         {contact.relationship && <span className="relationship">{contact.relationship}</span>}
       </header>
 
@@ -112,18 +129,32 @@ export default function ContactPage() {
           {editingContact ? (
             <form className="form-card" onSubmit={saveContact}>
               <h3>עריכת איש קשר</h3>
-              <input placeholder="שם" value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} required />
-              <input placeholder="קשר" value={contactForm.relationship} onChange={e => setContactForm(f => ({ ...f, relationship: e.target.value }))} />
+              {!linkedProfile && (
+                <input placeholder="שם" value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} required />
+              )}
+              <input placeholder="קשר (חבר, בן דוד, קולגה...)" value={contactForm.relationship} onChange={e => setContactForm(f => ({ ...f, relationship: e.target.value }))} />
               {!linkedProfile && (
                 <>
-                  <input placeholder="תחומי עניין (מופרדים בפסיק)" value={contactForm.interests} onChange={e => setContactForm(f => ({ ...f, interests: e.target.value }))} />
-                  <textarea placeholder="תיאור חופשי" value={contactForm.free_text} onChange={e => setContactForm(f => ({ ...f, free_text: e.target.value }))} rows={3} />
+                  <TagInput
+                    value={contactForm.interests}
+                    onChange={tags => setContactForm(f => ({ ...f, interests: tags }))}
+                    placeholder="תחומי עניין (הקלד ולחץ פסיק)"
+                  />
+                  <textarea placeholder="תיאור חופשי" value={contactForm.free_text} onChange={e => setContactForm(f => ({ ...f, free_text: e.target.value }))} rows={2} />
+                  <LocationBirthFields
+                    birth_date={contactForm.birth_date}
+                    city={contactForm.city}
+                    country={contactForm.country}
+                    onChange={(field, value) => setContactForm(f => ({ ...f, [field]: value }))}
+                  />
                 </>
               )}
-              <div className="row">
-                <input type="number" placeholder="תקציב מינימום ₪" value={contactForm.budget_min} onChange={e => setContactForm(f => ({ ...f, budget_min: e.target.value }))} />
-                <input type="number" placeholder="תקציב מקסימום ₪" value={contactForm.budget_max} onChange={e => setContactForm(f => ({ ...f, budget_max: e.target.value }))} />
-              </div>
+              <textarea
+                placeholder={linkedProfile ? 'הערות אישיות שלך על הקשר הזה...' : 'הערות אישיות...'}
+                value={contactForm.notes}
+                onChange={e => setContactForm(f => ({ ...f, notes: e.target.value }))}
+                rows={2}
+              />
               <div className="row">
                 <button type="submit">שמור</button>
                 <button type="button" onClick={() => setEditingContact(false)}>ביטול</button>
@@ -143,9 +174,15 @@ export default function ContactPage() {
               {displayInterests?.length > 0 && (
                 <div className="tags">{displayInterests.map(i => <span key={i} className="tag">{i}</span>)}</div>
               )}
+              <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: '0.9rem', color: '#555' }}>
+                {age !== null && <span>גיל {age}</span>}
+                {location && <span>📍 {location}</span>}
+              </div>
               {displayBio && <p style={{ marginTop: 8, color: '#555' }}>{displayBio}</p>}
-              {contact.budget_max && (
-                <p className="budget">תקציב: {contact.budget_min ?? 0}–{contact.budget_max} ₪</p>
+              {contact.notes && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: '#fffbeb', borderRadius: 8, fontSize: '0.9rem', color: '#78350f' }}>
+                  <strong>הערות: </strong>{contact.notes}
+                </div>
               )}
             </>
           )}
@@ -158,7 +195,11 @@ export default function ContactPage() {
           </div>
 
           {showEventForm && (
-            <EventForm onSubmit={addEvent} onCancel={() => setShowEventForm(false)} />
+            <EventForm
+              birthDate={displayBirthDate}
+              onSubmit={addEvent}
+              onCancel={() => setShowEventForm(false)}
+            />
           )}
 
           <div className="events-list">
@@ -166,7 +207,8 @@ export default function ContactPage() {
               <div key={ev.id}>
                 {editingEventId === ev.id ? (
                   <EventForm
-                    initial={{ type: ev.type, date: ev.date, reminder_days: ev.reminder_days }}
+                    initial={{ type: ev.type, date: ev.date, reminder_days: ev.reminder_days, budget_min: ev.budget_min, budget_max: ev.budget_max }}
+                    birthDate={displayBirthDate}
                     onSubmit={saveEditEvent}
                     onCancel={() => setEditingEventId(null)}
                   />
@@ -194,30 +236,39 @@ export default function ContactPage() {
             <div className="section-header">
               <h2>המלצות מתנה</h2>
               <button onClick={generateRecommendations} disabled={generating}>
-                {generating ? 'מחשב...' : '✨ ייצר המלצות'}
+                {generating ? '⏳ מחשב...' : '✨ ייצר המלצות'}
               </button>
             </div>
-            <div className="recs-list">
-              {eventRecs.map(r => (
-                <div key={r.id} className="card rec-card">
-                  <div className="rec-header">
-                    <h3>{r.title}</h3>
-                    <span className="price">~{r.estimated_price} ₪</span>
-                  </div>
-                  <p>{r.description}</p>
-                  <a
-                    href={`https://www.google.com/search?q=${encodeURIComponent(r.search_query ?? r.title)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    חיפוש בגוגל →
-                  </a>
+            {generating ? (
+              <div className="ai-loader">
+                <div className="ai-loader-dots">
+                  <span /><span /><span />
                 </div>
-              ))}
-              {eventRecs.length === 0 && (
-                <p className="empty">לחץ על "ייצר המלצות" לקבלת הצעות מ-AI</p>
-              )}
-            </div>
+                <p className="ai-loader-text">✨ ה-AI מחפש מתנות מושלמות עבורך...</p>
+              </div>
+            ) : (
+              <div className="recs-list">
+                {eventRecs.map(r => (
+                  <div key={r.id} className="card rec-card">
+                    <div className="rec-header">
+                      <h3>{r.title}</h3>
+                      <span className="price">~{r.estimated_price} ₪</span>
+                    </div>
+                    <p>{r.description}</p>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(r.search_query ?? r.title)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      חיפוש בגוגל →
+                    </a>
+                  </div>
+                ))}
+                {eventRecs.length === 0 && (
+                  <p className="empty">לחץ על "ייצר המלצות" לקבלת הצעות מ-AI</p>
+                )}
+              </div>
+            )}
           </section>
         )}
       </main>

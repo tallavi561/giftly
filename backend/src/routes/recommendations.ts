@@ -18,7 +18,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   const [{ data: contact, error: ce }, { data: event, error: ee }, { data: pastGifts }] =
     await Promise.all([
       db.from('contacts')
-        .select('*, user_profile:user_profiles(display_name, interests, bio)')
+        .select('*, user_profile:user_profiles(display_name, interests, bio, birth_date, city, country)')
         .eq('id', contact_id)
         .single(),
       db.from('events').select('*').eq('id', event_id).single(),
@@ -41,8 +41,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     result = await generateGiftRecommendations({
       profile: { name: effectiveName, relationship: contact.relationship, interests: effectiveInterests, free_text: effectiveBio },
       event,
-      budget_min: contact.budget_min,
-      budget_max: contact.budget_max,
+      budget_min: event.budget_min,
+      budget_max: event.budget_max,
       pastGifts: pastGifts ?? [],
     });
   } catch (err) {
@@ -71,7 +71,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const { token } = req as AuthRequest;
   const db = supabaseForUser(token);
-  let query = db.from('recommendations').select('*').order('created_at', { ascending: false });
+  let query = db.from('recommendations').select('*, contact:contacts(name)').order('created_at', { ascending: false });
   if (req.query.contact_id) query = query.eq('contact_id', req.query.contact_id as string);
   if (req.query.event_id) query = query.eq('event_id', req.query.event_id as string);
   const { data, error } = await query;

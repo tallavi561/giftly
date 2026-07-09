@@ -6,31 +6,29 @@ export interface AuthRequest extends Request {
   token: string;
 }
 
+// Profile shape passed to Gemini (merged from contact + optional linked user_profile)
 export interface Profile {
-  id: string;
-  owner_id: string;
   name: string;
   relationship: string | null;
   interests: string[];
   free_text: string | null;
-  budget_min: number | null;
-  budget_max: number | null;
-  created_at: string;
 }
 
 export interface Event {
   id: string;
-  profile_id: string;
+  contact_id: string;
   type: string;
   date: string;
   reminder_days: number;
+  budget_min: number | null;
+  budget_max: number | null;
   reminder_sent: boolean;
   created_at: string;
 }
 
 export interface GiftHistory {
   id: string;
-  profile_id: string;
+  contact_id: string;
   event_id: string | null;
   title: string;
   url: string | null;
@@ -42,7 +40,7 @@ export interface GiftHistory {
 
 export interface Recommendation {
   id: string;
-  profile_id: string;
+  contact_id: string;
   event_id: string | null;
   title: string;
   description: string | null;

@@ -3,11 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
-import type { Contact, UserProfile } from '../types/index.js';
+import type { Contact, ContactRequest, Recommendation, UserProfile } from '../types/index.js';
+import LocationBirthFields from '../components/LocationBirthFields.js';
+import TagInput from '../components/TagInput.js';
 
 const logger = new Logger('DashboardPage');
 
-const EMPTY_FORM = { name: '', relationship: '', interests: '', free_text: '', budget_min: '', budget_max: '' };
+const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', birth_date: '', city: '', country: '' };
+
+const PRIVACY_BADGE: Record<string, string> = {
+  public:   '🔓',
+  approval: '✋',
+  password: '🔑',
+};
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
@@ -22,14 +30,44 @@ export default function DashboardPage() {
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [linkedUser, setLinkedUser] = useState<UserProfile | null>(null);
   const [searching, setSearching] = useState(false);
+  const [privacyPassword, setPrivacyPassword] = useState('');
+  const [pendingPrivacy, setPendingPrivacy] = useState<'password' | null>(null);
+
+  // בקשות ממתינות
+  const [incomingRequests, setIncomingRequests] = useState<ContactRequest[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<ContactRequest[]>([]);
+
+  // סרגל היסטוריה
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<Recommendation[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
-    api.contacts.list().then((data: any) => {
-      logger.info('Contacts loaded', { count: data.length });
-      setContacts(data);
+    Promise.all([
+      api.contacts.list(),
+      api.contactRequests.incoming().catch(() => []),
+      api.contactRequests.outgoing().catch(() => []),
+    ]).then(([c, inc, out]: any[]) => {
+      logger.info('Dashboard loaded');
+      setContacts(c);
+      setIncomingRequests(inc);
+      setOutgoingRequests(out);
+      setLoading(false);
+    }).catch(err => {
+      logger.error('Dashboard load failed', err);
       setLoading(false);
     });
   }, []);
+
+  async function openHistory() {
+    setShowHistory(true);
+    if (history.length === 0) {
+      setHistoryLoading(true);
+      const recs = await api.recommendations.list();
+      setHistory(recs);
+      setHistoryLoading(false);
+    }
+  }
 
   async function handleSearch() {
     if (searchQuery.length < 2) return;
@@ -41,29 +79,67 @@ export default function DashboardPage() {
 
   function selectLinkedUser(u: UserProfile) {
     setLinkedUser(u);
-    setForm(f => ({ ...f, name: u.display_name, interests: u.interests.join(', ') }));
+    setForm(f => ({ ...f, name: u.display_name, interests: u.interests ?? [] }));
     setSearchResults([]);
     setSearchQuery('');
+    setPrivacyPassword('');
+    setPendingPrivacy(u.privacy_level === 'password' ? 'password' : null);
   }
 
   async function createContact(e: FormEvent) {
     e.preventDefault();
-    const payload = {
-      name: form.name,
+    const payload: Record<string, unknown> = {
+      name: linkedUser ? linkedUser.display_name : form.name,
       relationship: form.relationship || null,
       linked_user_id: linkedUser?.user_id ?? null,
-      interests: form.interests.split(',').map(s => s.trim()).filter(Boolean),
+      interests: form.interests,
       free_text: form.free_text || null,
-      budget_min: form.budget_min ? Number(form.budget_min) : null,
-      budget_max: form.budget_max ? Number(form.budget_max) : null,
+      notes: form.notes || null,
+      birth_date: form.birth_date || null,
+      city: form.city || null,
+      country: form.country || null,
     };
-    const created: any = await api.contacts.create(payload);
-    logger.info('Contact created', { id: created.id });
-    setContacts(c => [...c, created]);
-    setShowForm(false);
-    setForm(EMPTY_FORM);
-    setLinkedUser(null);
-    navigate(`/contact/${created.id}?newContact=true`);
+    if (linkedUser?.privacy_level === 'password') payload.privacy_password = privacyPassword;
+
+    try {
+      const result: any = await api.contacts.create(payload);
+      if (result?.status === 'pending_approval') {
+        // סטטוס 202 — בקשה נשלחה
+        const fakeReq: ContactRequest = {
+          id: Math.random().toString(),
+          requester_id: user!.id,
+          requester_name: null,
+          target_user_id: linkedUser!.user_id,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          target_profile: { display_name: linkedUser!.display_name, nickname: linkedUser!.nickname },
+        };
+        setOutgoingRequests(r => [fakeReq, ...r]);
+        setShowForm(false);
+        setForm(EMPTY_FORM);
+        setLinkedUser(null);
+        alert(`בקשת מעקב נשלחה ל-${linkedUser!.display_name}. תקבל אישור לאחר שהם יאשרו.`);
+        return;
+      }
+      logger.info('Contact created', { id: result.id });
+      setContacts(c => [...c, result]);
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+      setLinkedUser(null);
+      navigate(`/contact/${result.id}?newContact=true`);
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  }
+
+  async function approveRequest(req: ContactRequest) {
+    await api.contactRequests.approve(req.id, req.requester_name ?? 'ללא שם', null);
+    setIncomingRequests(r => r.filter(x => x.id !== req.id));
+  }
+
+  async function rejectRequest(req: ContactRequest) {
+    await api.contactRequests.reject(req.id);
+    setIncomingRequests(r => r.filter(x => x.id !== req.id));
   }
 
   function openForm() {
@@ -72,6 +148,8 @@ export default function DashboardPage() {
     setForm(EMPTY_FORM);
     setSearchQuery('');
     setSearchResults([]);
+    setPrivacyPassword('');
+    setPendingPrivacy(null);
   }
 
   return (
@@ -80,11 +158,49 @@ export default function DashboardPage() {
         <h1>🎁 Giftly</h1>
         <div className="header-right">
           <span>{user?.email}</span>
+          <button className="history-btn" onClick={openHistory}>
+            📋 היסטוריה
+          </button>
           <button onClick={signOut}>יציאה</button>
         </div>
       </header>
 
       <main>
+        {/* בקשות נכנסות */}
+        {incomingRequests.length > 0 && (
+          <section className="requests-section">
+            <h2 className="requests-title">🔔 בקשות ממתינות לאישורך ({incomingRequests.length})</h2>
+            {incomingRequests.map(r => (
+              <div key={r.id} className="request-card">
+                <span>
+                  <strong>{(r as any).requester?.display_name ?? r.requester_name ?? 'משתמש'}</strong>
+                  {(r as any).requester?.nickname && <span className="req-nick"> @{(r as any).requester.nickname}</span>}
+                  {' '}רוצה להוסיף אותך כאיש קשר
+                </span>
+                <div className="request-actions">
+                  <button className="approve-btn" onClick={() => approveRequest(r)}>אשר</button>
+                  <button className="reject-btn" onClick={() => rejectRequest(r)}>דחה</button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* בקשות יוצאות */}
+        {outgoingRequests.filter(r => r.status === 'pending').length > 0 && (
+          <section className="requests-section">
+            <h2 className="requests-title">⏳ בקשות שלחת וממתינות לאישור</h2>
+            {outgoingRequests.filter(r => r.status === 'pending').map(r => (
+              <div key={r.id} className="request-card pending-out">
+                <span>
+                  ממתין לאישור מ-<strong>{r.target_profile?.display_name ?? 'משתמש'}</strong>
+                  {r.target_profile?.nickname && <span className="req-nick"> @{r.target_profile.nickname}</span>}
+                </span>
+              </div>
+            ))}
+          </section>
+        )}
+
         <div className="section-header">
           <h2>אנשי הקשר שלי</h2>
           <button onClick={openForm}>+ איש קשר חדש</button>
@@ -116,7 +232,7 @@ export default function DashboardPage() {
                     {searchResults.map(u => (
                       <div key={u.user_id} className="search-result-item" onClick={() => selectLinkedUser(u)}>
                         <strong>{u.display_name}</strong>
-                        <span>@{u.nickname}</span>
+                        <span>{PRIVACY_BADGE[u.privacy_level] ?? ''} @{u.nickname}</span>
                       </div>
                     ))}
                   </div>
@@ -128,28 +244,58 @@ export default function DashboardPage() {
                 )}
               </div>
             ) : (
-              <div className="linked-user-badge">
-                <span>מקושר ל: <strong>{linkedUser.display_name}</strong> (@{linkedUser.nickname})</span>
-                <button type="button" className="link-btn" onClick={() => { setLinkedUser(null); setForm(EMPTY_FORM); }}>
-                  הסר
-                </button>
-              </div>
+              <>
+                <div className="linked-user-badge">
+                  <span>
+                    {PRIVACY_BADGE[linkedUser.privacy_level]} מקושר ל: <strong>{linkedUser.display_name}</strong> (@{linkedUser.nickname})
+                  </span>
+                  <button type="button" className="link-btn" onClick={() => { setLinkedUser(null); setForm(EMPTY_FORM); setPendingPrivacy(null); }}>
+                    הסר
+                  </button>
+                </div>
+                {pendingPrivacy === 'password' && (
+                  <div className="privacy-gate">
+                    <p>🔑 משתמש זה מוגן — הזן את קוד הגישה שלו:</p>
+                    <input
+                      type="password"
+                      placeholder="קוד גישה"
+                      value={privacyPassword}
+                      onChange={e => setPrivacyPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+                <textarea
+                  placeholder="הערות אישיות שלך על איש הקשר הזה (אופציונלי)..."
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                />
+              </>
             )}
 
-            <input placeholder="שם (לשימוש שלך)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+            {!linkedUser && (
+              <input placeholder="שם" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+            )}
             <input placeholder="קשר (בן/בת זוג, הורה, חבר...)" value={form.relationship} onChange={e => setForm(f => ({ ...f, relationship: e.target.value }))} />
 
             {!linkedUser && (
               <>
-                <input placeholder="תחומי עניין (מופרדים בפסיק)" value={form.interests} onChange={e => setForm(f => ({ ...f, interests: e.target.value }))} />
+                <TagInput
+                  value={form.interests}
+                  onChange={tags => setForm(f => ({ ...f, interests: tags }))}
+                  placeholder="תחומי עניין (הקלד ולחץ פסיק)"
+                />
                 <textarea placeholder="תיאור חופשי" value={form.free_text} onChange={e => setForm(f => ({ ...f, free_text: e.target.value }))} rows={2} />
+                <LocationBirthFields
+                  birth_date={form.birth_date}
+                  city={form.city}
+                  country={form.country}
+                  onChange={(field, value) => setForm(f => ({ ...f, [field]: value }))}
+                />
               </>
             )}
 
-            <div className="row">
-              <input type="number" placeholder="תקציב מינימום ₪" value={form.budget_min} onChange={e => setForm(f => ({ ...f, budget_min: e.target.value }))} />
-              <input type="number" placeholder="תקציב מקסימום ₪" value={form.budget_max} onChange={e => setForm(f => ({ ...f, budget_max: e.target.value }))} />
-            </div>
             <div className="row">
               <button type="submit">שמור</button>
               <button type="button" onClick={() => setShowForm(false)}>ביטול</button>
@@ -161,15 +307,14 @@ export default function DashboardPage() {
           <div className="profiles-grid">
             {contacts.map(c => (
               <div key={c.id} className="card profile-card" onClick={() => navigate(`/contact/${c.id}`)}>
-                <h3>{c.name}</h3>
+                <h3>{(c.user_profile as any)?.display_name ?? c.name}</h3>
                 {c.relationship && <p className="relationship">{c.relationship}</p>}
-                {c.user_profile && <p className="linked-badge">@{(c.user_profile as any).nickname}</p>}
+                {c.user_profile && <p className="linked-badge">{PRIVACY_BADGE[(c.user_profile as any).privacy_level]} @{(c.user_profile as any).nickname}</p>}
                 {(c.interests?.length > 0) && (
                   <div className="tags">
                     {c.interests.slice(0, 3).map(i => <span key={i} className="tag">{i}</span>)}
                   </div>
                 )}
-                {c.budget_max && <p className="budget">עד {c.budget_max} ₪</p>}
               </div>
             ))}
             {contacts.length === 0 && !showForm && (
@@ -178,6 +323,39 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {/* סרגל היסטוריה */}
+      {showHistory && (
+        <div className="history-overlay" onClick={() => setShowHistory(false)}>
+          <aside className="history-panel" onClick={e => e.stopPropagation()}>
+            <div className="history-header">
+              <h2>📋 היסטוריית המלצות</h2>
+              <button className="close-btn" onClick={() => setShowHistory(false)}>✕</button>
+            </div>
+            {historyLoading ? (
+              <div className="ai-loader" style={{ marginTop: 32 }}>
+                <div className="ai-loader-dots"><span /><span /><span /></div>
+                <p className="ai-loader-text">טוען היסטוריה...</p>
+              </div>
+            ) : history.length === 0 ? (
+              <p className="empty" style={{ padding: '32px 16px' }}>אין המלצות עדיין</p>
+            ) : (
+              <div className="history-list">
+                {history.map(r => (
+                  <div key={r.id} className="history-item">
+                    <div className="history-item-header">
+                      <span className="history-contact">{r.contact?.name ?? '—'}</span>
+                      <span className="history-price">~{r.estimated_price} ₪</span>
+                    </div>
+                    <p className="history-title">{r.title}</p>
+                    <p className="history-date">{new Date(r.created_at).toLocaleDateString('he-IL')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

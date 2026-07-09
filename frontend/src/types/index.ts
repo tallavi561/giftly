@@ -5,8 +5,22 @@ export interface UserProfile {
   email: string;
   interests: string[];
   bio: string | null;
+  birth_date: string | null;
+  city: string | null;
+  country: string | null;
+  privacy_level: 'public' | 'approval' | 'password';
   created_at: string;
   updated_at: string;
+}
+
+export interface ContactRequest {
+  id: string;
+  requester_id: string;
+  requester_name: string | null;
+  target_user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  target_profile?: Pick<UserProfile, 'display_name' | 'nickname'>;
 }
 
 export interface Contact {
@@ -17,10 +31,11 @@ export interface Contact {
   linked_user_id: string | null;
   interests: string[];
   free_text: string | null;
-  budget_min: number | null;
-  budget_max: number | null;
+  notes: string | null;
+  birth_date: string | null;
+  city: string | null;
+  country: string | null;
   created_at: string;
-  // joined from user_profiles when linked
   user_profile?: UserProfile;
 }
 
@@ -30,6 +45,8 @@ export interface Event {
   type: string;
   date: string;
   reminder_days: number;
+  budget_min: number | null;
+  budget_max: number | null;
   reminder_sent: boolean;
   created_at: string;
 }
@@ -57,4 +74,5 @@ export interface Recommendation {
   search_query: string | null;
   score: number | null;
   created_at: string;
+  contact?: { name: string };
 }

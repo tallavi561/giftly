@@ -19,14 +19,14 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   const { token } = req as AuthRequest;
-  const { contact_id, type, date, reminder_days } = req.body as Record<string, unknown>;
+  const { contact_id, type, date, reminder_days, budget_min, budget_max } = req.body as Record<string, unknown>;
   const days = reminder_days !== undefined ? Number(reminder_days) : 14;
   if (days < 1) return void res.status(400).json({ error: 'reminder_days חייב להיות לפחות 1' });
   logger.info('Create event', { contact_id, type, date });
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('events')
-    .insert({ contact_id, type, date, reminder_days: days })
+    .insert({ contact_id, type, date, reminder_days: days, budget_min: budget_min ?? null, budget_max: budget_max ?? null })
     .select()
     .single();
   if (error) { logger.error('Create event failed', error); return void res.status(400).json({ error: error.message }); }
@@ -35,13 +35,13 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
 router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
   const { token } = req as AuthRequest;
-  const { type, date, reminder_days } = req.body as Record<string, unknown>;
+  const { type, date, reminder_days, budget_min, budget_max } = req.body as Record<string, unknown>;
   if (reminder_days !== undefined && Number(reminder_days) < 1)
     return void res.status(400).json({ error: 'reminder_days חייב להיות לפחות 1' });
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('events')
-    .update({ type, date, reminder_days })
+    .update({ type, date, reminder_days, budget_min: budget_min ?? null, budget_max: budget_max ?? null })
     .eq('id', req.params.id)
     .select()
     .single();

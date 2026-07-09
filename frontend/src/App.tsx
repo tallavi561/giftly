@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.js';
 import DashboardPage from './pages/DashboardPage.js';
 import ContactPage from './pages/ContactPage.js';
 import SetupPage from './pages/SetupPage.js';
+import ApproveRequestPage from './pages/ApproveRequestPage.js';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -29,8 +30,9 @@ function SetupGuard({ children }: { children: ReactNode }) {
     });
   }, [user]);
 
-  if (loading || !checked) return <div className="loading">טוען...</div>;
+  if (loading) return <div className="loading">טוען...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (!checked) return <div className="loading">טוען...</div>;
   if (!hasSelf) return <Navigate to="/setup" replace />;
   return <>{children}</>;
 }
@@ -43,6 +45,7 @@ export default function App() {
         <Route path="/setup" element={<ProtectedRoute><SetupPage /></ProtectedRoute>} />
         <Route path="/" element={<SetupGuard><DashboardPage /></SetupGuard>} />
         <Route path="/contact/:id" element={<SetupGuard><ContactPage /></SetupGuard>} />
+        <Route path="/approve-request" element={<ApproveRequestPage />} />
       </Routes>
     </AuthProvider>
   );
