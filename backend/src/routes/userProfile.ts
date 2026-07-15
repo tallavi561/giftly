@@ -24,7 +24,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
 // POST /api/user-profile — יצירת פרופיל
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   const { user, token } = req as AuthRequest;
-  const { display_name, nickname, interests, bio, birth_date, city, country, privacy_level, privacy_password } =
+  const { display_name, nickname, interests, bio, gender, birth_date, city, country, privacy_level, privacy_password } =
     req.body as Record<string, unknown>;
 
   if (!display_name || !nickname)
@@ -44,7 +44,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     .from('user_profiles')
     .insert({
       user_id: user.id, email: user.email, display_name, nickname,
-      interests, bio, birth_date: birth_date || null, city: city || null, country: country || null,
+      interests, bio, gender: gender || null, birth_date: birth_date || null, city: city || null, country: country || null,
       privacy_level: level, privacy_password_hash: passwordHash,
     })
     .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, created_at, updated_at')
@@ -60,11 +60,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 // PATCH /api/user-profile — עדכון פרופיל
 router.patch('/', requireAuth, async (req: Request, res: Response) => {
   const { user, token } = req as AuthRequest;
-  const { display_name, nickname, interests, bio, birth_date, city, country, privacy_level, privacy_password } =
+  const { display_name, nickname, interests, bio, gender, birth_date, city, country, privacy_level, privacy_password } =
     req.body as Record<string, unknown>;
 
   const updateData: Record<string, unknown> = {
-    display_name, nickname, interests, bio,
+    display_name, nickname, interests, bio, gender: gender || null,
     birth_date: birth_date || null, city: city || null, country: country || null,
     updated_at: new Date().toISOString(),
   };

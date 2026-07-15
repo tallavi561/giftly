@@ -12,6 +12,7 @@ export interface Profile {
   relationship: string | null;
   interests: string[];
   free_text: string | null;
+  gender: string | null;
 }
 
 export interface Event {

@@ -8,6 +8,7 @@ export interface UserProfile {
   birth_date: string | null;
   city: string | null;
   country: string | null;
+  gender: 'male' | 'female' | 'other' | null;
   privacy_level: 'public' | 'approval' | 'password';
   created_at: string;
   updated_at: string;
@@ -32,6 +33,7 @@ export interface Contact {
   interests: string[];
   free_text: string | null;
   notes: string | null;
+  gender: 'male' | 'female' | 'other' | null;
   birth_date: string | null;
   city: string | null;
   country: string | null;

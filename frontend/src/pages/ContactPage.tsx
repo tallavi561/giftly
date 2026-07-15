@@ -6,6 +6,7 @@ import type { Contact, Event, Recommendation, UserProfile } from '../types/index
 import EventForm, { type EventFormValues } from '../components/EventForm.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
+import GenderSelect from '../components/GenderSelect.js';
 import { calcAge, formatLocation } from '../lib/utils.js';
 
 const logger = new Logger('ContactPage');
@@ -24,10 +25,10 @@ export default function ContactPage() {
   const [editingContact, setEditingContact] = useState(false);
   const [contactForm, setContactForm] = useState<{
     name: string; relationship: string; interests: string[]; free_text: string;
-    notes: string; birth_date: string; city: string; country: string;
+    notes: string; gender: string; birth_date: string; city: string; country: string;
   }>({
     name: '', relationship: '', interests: [], free_text: '', notes: '',
-    birth_date: '', city: '', country: '',
+    gender: '', birth_date: '', city: '', country: '',
   });
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function ContactPage() {
         interests: c.interests ?? [],
         free_text: c.free_text ?? '',
         notes: c.notes ?? '',
+        gender: c.gender ?? '',
         birth_date: c.birth_date ?? '',
         city: c.city ?? '',
         country: c.country ?? '',
@@ -79,6 +81,7 @@ export default function ContactPage() {
       interests: contactForm.interests,
       free_text: contactForm.free_text || null,
       notes: contactForm.notes || null,
+      gender: contactForm.gender || null,
       birth_date: contactForm.birth_date || null,
       city: contactForm.city || null,
       country: contactForm.country || null,
@@ -141,6 +144,7 @@ export default function ContactPage() {
                     placeholder="תחומי עניין (הקלד ולחץ פסיק)"
                   />
                   <textarea placeholder="תיאור חופשי" value={contactForm.free_text} onChange={e => setContactForm(f => ({ ...f, free_text: e.target.value }))} rows={2} />
+                  <GenderSelect value={contactForm.gender} onChange={v => setContactForm(f => ({ ...f, gender: v }))} />
                   <LocationBirthFields
                     birth_date={contactForm.birth_date}
                     city={contactForm.city}
@@ -175,6 +179,10 @@ export default function ContactPage() {
                 <div className="tags">{displayInterests.map(i => <span key={i} className="tag">{i}</span>)}</div>
               )}
               <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: '0.9rem', color: '#555' }}>
+                {(() => {
+                  const g = linkedProfile?.gender ?? contact.gender;
+                  return g ? <span>{g === 'male' ? '👨 זכר' : g === 'female' ? '👩 נקבה' : '🧑 אחר'}</span> : null;
+                })()}
                 {age !== null && <span>גיל {age}</span>}
                 {location && <span>📍 {location}</span>}
               </div>

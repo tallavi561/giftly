@@ -32,6 +32,7 @@ export async function generateGiftRecommendations(params: GenerateParams): Promi
 
 פרטי האדם:
 - שם: ${profile.name}
+- מגדר: ${profile.gender === 'male' ? 'זכר' : profile.gender === 'female' ? 'נקבה' : profile.gender ? 'אחר' : 'לא ידוע'}
 - קשר: ${profile.relationship ?? ''}
 - תחומי עניין: ${(profile.interests ?? []).join(', ')}
 - תיאור חופשי: ${profile.free_text ?? ''}
@@ -57,7 +58,10 @@ ${pastGiftsList}
 
   const result = await model.generateContent(prompt);
   const text = result.response.text().trim();
-  const json = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON object found in Gemini response');
+  const json = text.slice(start, end + 1);
 
   const parsed = JSON.parse(json) as GeminiResponse;
   logger.info('Recommendations generated', { count: parsed.recommendations.length });

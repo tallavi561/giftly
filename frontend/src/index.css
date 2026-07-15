@@ -317,6 +317,32 @@ button:disabled { background: #a5b4fc; cursor: not-allowed; }
 }
 .privacy-gate p { margin: 0; }
 
+/* Profile edit panel */
+.profile-edit-form {
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; flex: 1; padding: 4px 0 24px;
+}
+.profile-edit-form label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 0.85rem; font-weight: 600; color: #374151;
+}
+.profile-edit-form label input,
+.profile-edit-form label textarea,
+.profile-edit-form label select {
+  font-weight: 400; font-size: 0.9rem;
+  border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 10px;
+  background: #fff;
+}
+.profile-edit-form label textarea { resize: vertical; }
+.profile-edit-form .privacy-section { display: flex; flex-direction: column; gap: 6px; }
+.profile-edit-form .privacy-section p { margin: 0 0 4px; font-size: 0.85rem; }
+.profile-edit-form button[type=submit] {
+  margin-top: 8px; padding: 10px; background: #4f46e5; color: #fff;
+  border-radius: 8px; font-weight: 600; font-size: 0.95rem;
+}
+.profile-edit-form button[type=submit]:disabled { opacity: 0.6; }
+.history-empty { color: #9ca3af; text-align: center; padding: 32px 0; }
+
 /* AI generating loader */
 .ai-loader {
   display: flex;

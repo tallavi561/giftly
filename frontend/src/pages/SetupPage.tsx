@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
+import GenderSelect from '../components/GenderSelect.js';
 
 const logger = new Logger('SetupPage');
 
@@ -17,7 +18,7 @@ export default function SetupPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     display_name: '', nickname: '', interests: [] as string[], bio: '',
-    birth_date: '', city: '', country: '',
+    gender: '', birth_date: '', city: '', country: '',
     privacy_level: 'approval', privacy_password: '', privacy_password_confirm: '',
   });
   const [error, setError] = useState('');
@@ -39,6 +40,7 @@ export default function SetupPage() {
       await api.userProfile.create({
         display_name: form.display_name,
         nickname: form.nickname.trim().toLowerCase(),
+        gender: form.gender || null,
         interests: form.interests,
         bio: form.bio || null,
         birth_date: form.birth_date || null,
@@ -82,6 +84,7 @@ export default function SetupPage() {
               הכינוי הוא הדרך שבה אחרים יוכלו למצוא אותך — בחר משהו קבוע וייחודי.
             </p>
           </div>
+          <GenderSelect value={form.gender} onChange={v => setField('gender', v)} required />
           <LocationBirthFields
             birth_date={form.birth_date}
             city={form.city}

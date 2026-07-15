@@ -35,11 +35,12 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       : (contact.interests ?? []);
   const effectiveBio: string | null = contact.user_profile?.bio ?? contact.free_text ?? null;
   const effectiveName: string = contact.user_profile?.display_name ?? contact.name;
+  const effectiveGender: string | null = contact.user_profile?.gender ?? contact.gender ?? null;
 
   let result;
   try {
     result = await generateGiftRecommendations({
-      profile: { name: effectiveName, relationship: contact.relationship, interests: effectiveInterests, free_text: effectiveBio },
+      profile: { name: effectiveName, relationship: contact.relationship, interests: effectiveInterests, free_text: effectiveBio, gender: effectiveGender },
       event,
       budget_min: event.budget_min,
       budget_max: event.budget_max,

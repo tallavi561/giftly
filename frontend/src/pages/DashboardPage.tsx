@@ -6,10 +6,11 @@ import { Logger } from '../lib/logger.js';
 import type { Contact, ContactRequest, Recommendation, UserProfile } from '../types/index.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
+import GenderSelect from '../components/GenderSelect.js';
 
 const logger = new Logger('DashboardPage');
 
-const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', birth_date: '', city: '', country: '' };
+const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', gender: '', birth_date: '', city: '', country: '' };
 
 const PRIVACY_BADGE: Record<string, string> = {
   public:   '🔓',
@@ -42,6 +43,12 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<Recommendation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // עריכת פרופיל
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState<Record<string, any>>({});
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
   useEffect(() => {
     Promise.all([
       api.contacts.list(),
@@ -58,6 +65,47 @@ export default function DashboardPage() {
       setLoading(false);
     });
   }, []);
+
+  async function openProfile() {
+    setShowProfile(true);
+    setProfileError('');
+    const p = await api.userProfile.me();
+    setProfileForm({
+      display_name: p.display_name ?? '',
+      nickname: p.nickname ?? '',
+      bio: p.bio ?? '',
+      gender: p.gender ?? '',
+      birth_date: p.birth_date ?? '',
+      city: p.city ?? '',
+      country: p.country ?? '',
+      interests: p.interests ?? [],
+      privacy_level: p.privacy_level ?? 'approval',
+    });
+  }
+
+  async function saveProfile(e: FormEvent) {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileError('');
+    try {
+      await api.userProfile.update({
+        display_name: profileForm.display_name,
+        nickname: profileForm.nickname.trim().toLowerCase(),
+        bio: profileForm.bio || null,
+        gender: profileForm.gender || null,
+        birth_date: profileForm.birth_date || null,
+        city: profileForm.city || null,
+        country: profileForm.country || null,
+        interests: profileForm.interests,
+        privacy_level: profileForm.privacy_level,
+      });
+      setShowProfile(false);
+    } catch (err) {
+      setProfileError((err as Error).message);
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   async function openHistory() {
     setShowHistory(true);
@@ -95,6 +143,7 @@ export default function DashboardPage() {
       interests: form.interests,
       free_text: form.free_text || null,
       notes: form.notes || null,
+      gender: form.gender || null,
       birth_date: form.birth_date || null,
       city: form.city || null,
       country: form.country || null,
@@ -158,9 +207,8 @@ export default function DashboardPage() {
         <h1>🎁 Giftly</h1>
         <div className="header-right">
           <span>{user?.email}</span>
-          <button className="history-btn" onClick={openHistory}>
-            📋 היסטוריה
-          </button>
+          <button className="history-btn" onClick={openProfile}>👤 הפרופיל שלי</button>
+          <button className="history-btn" onClick={openHistory}>📋 היסטוריה</button>
           <button onClick={signOut}>יציאה</button>
         </div>
       </header>
@@ -287,6 +335,7 @@ export default function DashboardPage() {
                   placeholder="תחומי עניין (הקלד ולחץ פסיק)"
                 />
                 <textarea placeholder="תיאור חופשי" value={form.free_text} onChange={e => setForm(f => ({ ...f, free_text: e.target.value }))} rows={2} />
+                <GenderSelect value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} />
                 <LocationBirthFields
                   birth_date={form.birth_date}
                   city={form.city}
@@ -310,6 +359,10 @@ export default function DashboardPage() {
                 <h3>{(c.user_profile as any)?.display_name ?? c.name}</h3>
                 {c.relationship && <p className="relationship">{c.relationship}</p>}
                 {c.user_profile && <p className="linked-badge">{PRIVACY_BADGE[(c.user_profile as any).privacy_level]} @{(c.user_profile as any).nickname}</p>}
+                {(() => {
+                  const g = (c.user_profile as any)?.gender ?? c.gender;
+                  return g ? <p className="relationship">{g === 'male' ? '👨 זכר' : g === 'female' ? '👩 נקבה' : '🧑 אחר'}</p> : null;
+                })()}
                 {(c.interests?.length > 0) && (
                   <div className="tags">
                     {c.interests.slice(0, 3).map(i => <span key={i} className="tag">{i}</span>)}
@@ -352,6 +405,65 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </aside>
+        </div>
+      )}
+
+      {/* פאנל עריכת פרופיל */}
+      {showProfile && (
+        <div className="history-overlay" onClick={() => setShowProfile(false)}>
+          <aside className="history-panel" onClick={e => e.stopPropagation()}>
+            <div className="history-header">
+              <h2>👤 הפרופיל שלי</h2>
+              <button className="close-btn" onClick={() => setShowProfile(false)}>✕</button>
+            </div>
+            {Object.keys(profileForm).length === 0 ? (
+              <p className="history-empty">טוען...</p>
+            ) : (
+              <form onSubmit={saveProfile} className="profile-edit-form">
+                <label>שם מלא
+                  <input value={profileForm.display_name} onChange={e => setProfileForm((f: any) => ({ ...f, display_name: e.target.value }))} required />
+                </label>
+                <label>כינוי (מזהה ייחודי)
+                  <input value={profileForm.nickname} onChange={e => setProfileForm((f: any) => ({ ...f, nickname: e.target.value }))} required />
+                </label>
+                <label>מגדר
+                  <GenderSelect value={profileForm.gender} onChange={v => setProfileForm((f: any) => ({ ...f, gender: v }))} />
+                </label>
+                <label>תאריך לידה
+                  <input type="date" value={profileForm.birth_date} onChange={e => setProfileForm((f: any) => ({ ...f, birth_date: e.target.value }))} />
+                </label>
+                <label>עיר
+                  <input value={profileForm.city} onChange={e => setProfileForm((f: any) => ({ ...f, city: e.target.value }))} />
+                </label>
+                <label>מדינה
+                  <input value={profileForm.country} onChange={e => setProfileForm((f: any) => ({ ...f, country: e.target.value }))} />
+                </label>
+                <label>תחביבים ותחומי עניין
+                  <TagInput value={profileForm.interests} onChange={v => setProfileForm((f: any) => ({ ...f, interests: v }))} placeholder="ספורט, מוזיקה..." />
+                </label>
+                <label>ביו
+                  <textarea value={profileForm.bio} onChange={e => setProfileForm((f: any) => ({ ...f, bio: e.target.value }))} rows={3} />
+                </label>
+                <div className="privacy-section">
+                  <p><strong>רמת פרטיות</strong></p>
+                  {(['public', 'approval', 'password'] as const).map(level => (
+                    <label key={level} className="privacy-option">
+                      <input type="radio" name="privacy_level" value={level}
+                        checked={profileForm.privacy_level === level}
+                        onChange={() => setProfileForm((f: any) => ({ ...f, privacy_level: level }))} />
+                      {level === 'public' ? '🔓 פתוח — כל אחד יכול לשמור אותך' :
+                       level === 'approval' ? '✋ אישור — כל בקשה מחייבת אישורך (ברירת מחדל)' :
+                       '🔑 סיסמה — רק מי שיודע את הסיסמה'}
+                    </label>
+                  ))}
+                </div>
+                {profileError && <p className="error-msg">{profileError}</p>}
+                <button type="submit" disabled={profileSaving}>
+                  {profileSaving ? 'שומר...' : 'שמור שינויים'}
+                </button>
+              </form>
             )}
           </aside>
         </div>
