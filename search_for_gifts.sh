@@ -1,0 +1,1 @@
+curl -X POST http://localhost:3001/api/self-recommendations/generate \  -H "x-admin-secret: giftly-admin-2024"
