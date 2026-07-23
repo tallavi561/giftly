@@ -7,6 +7,7 @@ import eventsRouter from './routes/events.js';
 import giftsRouter from './routes/gifts.js';
 import recommendationsRouter from './routes/recommendations.js';
 import contactRequestsRouter from './routes/contactRequests.js';
+import selfRecommendationsRouter from './routes/selfRecommendations.js';
 import { Logger } from './lib/logger.js';
 
 const logger = new Logger('server');
@@ -27,6 +28,7 @@ app.use('/api/events', eventsRouter);
 app.use('/api/gifts', giftsRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/contact-requests', contactRequestsRouter);
+app.use('/api/self-recommendations', selfRecommendationsRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

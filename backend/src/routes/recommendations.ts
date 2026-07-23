@@ -8,12 +8,34 @@ import type { AuthRequest } from '../types/index.js';
 const router = Router();
 const logger = new Logger('recommendations');
 
+// How many generate calls are allowed per user per week (each call ≈ 5 recs)
+const WEEKLY_CALLS_LIMIT = Number(process.env.WEEKLY_REC_CALLS ?? 5);
+
 router.post('/', requireAuth, async (req: Request, res: Response) => {
-  const { token } = req as AuthRequest;
+  const { token, user } = req as AuthRequest;
   const { contact_id, event_id } = req.body as { contact_id: string; event_id: string };
   logger.info('Generate recommendations', { contact_id, event_id });
 
   const db = supabaseForUser(token);
+
+  // Rate-limit: count distinct generate calls this week via a marker row
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const { count, error: countErr } = await db
+    .from('recommendation_calls')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .gte('created_at', weekAgo);
+
+  if (countErr) { logger.error('Rate limit check failed', countErr); return void res.status(500).json({ error: countErr.message }); }
+
+  if ((count ?? 0) >= WEEKLY_CALLS_LIMIT) {
+    logger.warn('Rate limit exceeded', { user_id: user.id, count, limit: WEEKLY_CALLS_LIMIT });
+    return void res.status(429).json({
+      error: `הגעת למגבלת ${WEEKLY_CALLS_LIMIT} חיפושי AI לשבוע. הגבלה תתאפס ב-7 ימים.`,
+      limit: WEEKLY_CALLS_LIMIT,
+      used: count,
+    });
+  }
 
   const [{ data: contact, error: ce }, { data: event, error: ee }, { data: pastGifts }] =
     await Promise.all([
@@ -65,8 +87,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   const { data: saved, error: se } = await db.from('recommendations').insert(toInsert).select();
   if (se) { logger.error('Save recommendations failed', se); return void res.status(500).json({ error: se.message }); }
 
-  logger.info('Recommendations saved', { count: saved?.length });
-  res.json(saved);
+  // Log the call for rate-limiting
+  await db.from('recommendation_calls').insert({ user_id: user.id });
+
+  logger.info('Recommendations saved', { count: saved?.length, callsUsed: (count ?? 0) + 1, limit: WEEKLY_CALLS_LIMIT });
+  res.json({ recommendations: saved, rate_limit: { used: (count ?? 0) + 1, limit: WEEKLY_CALLS_LIMIT } });
 });
 
 router.get('/', requireAuth, async (req: Request, res: Response) => {

@@ -8,10 +8,8 @@ interface Props {
 export default function LocationBirthFields({ birth_date, city, country, onChange }: Props) {
   return (
     <>
-      <div>
-        <label style={{ fontSize: '0.85rem', color: '#555', display: 'block', marginBottom: 4 }}>
-          תאריך לידה
-        </label>
+      <div className="field">
+        <label>תאריך לידה</label>
         <input
           type="date"
           value={birth_date}
@@ -19,17 +17,15 @@ export default function LocationBirthFields({ birth_date, city, country, onChang
           max={new Date().toISOString().split('T')[0]}
         />
       </div>
-      <div className="row">
-        <input
-          placeholder="עיר"
-          value={city}
-          onChange={e => onChange('city', e.target.value)}
-        />
-        <input
-          placeholder="מדינה"
-          value={country}
-          onChange={e => onChange('country', e.target.value)}
-        />
+      <div className="fields-row">
+        <div className="field">
+          <label>עיר</label>
+          <input placeholder="תל אביב" value={city} onChange={e => onChange('city', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>מדינה</label>
+          <input placeholder="ישראל" value={country} onChange={e => onChange('country', e.target.value)} />
+        </div>
       </div>
     </>
   );

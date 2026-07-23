@@ -49,57 +49,96 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h1>🎁 Giftly</h1>
-        <h2>{mode === 'login' ? 'כניסה' : 'הרשמה'}</h2>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="אימייל"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-
-          <div className="password-field">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="סיסמה"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-            <button type="button" className="eye-btn" onClick={() => setShowPassword(s => !s)}>
-              {showPassword ? '🙈' : '👁️'}
-            </button>
+    <div className="login-root">
+      {/* Form panel — first in RTL = right side */}
+      <section className="login-form-panel">
+        <div className="login-form-inner">
+          <div className="login-logo">
+            <img src="/logo.png" alt="Giftly" />
           </div>
 
-          {mode === 'signup' && (
-            <div className="password-field">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                placeholder="אימות סיסמה"
-                value={confirm}
-                onChange={e => setConfirm(e.target.value)}
-                required
-              />
-              <button type="button" className="eye-btn" onClick={() => setShowConfirm(s => !s)}>
-                {showConfirm ? '🙈' : '👁️'}
-              </button>
+          <div className="login-header">
+            <h1>{mode === 'login' ? 'ברוכים הבאים!' : 'יצירת חשבון חדש'}</h1>
+            <p>{mode === 'login' ? 'כיף לראות אתכם שוב' : 'הצטרפו לקהילת Giftly'}</p>
+          </div>
+
+          {error && (
+            <div className={error.includes('נשלח') ? 'form-success' : 'form-error'}>
+              {error}
             </div>
           )}
 
-          {error && <p className={error.includes('נשלח') ? 'success' : 'error'}>{error}</p>}
+          <form onSubmit={handleSubmit}>
+            <div className="form-field">
+              <label htmlFor="email">כתובת אימייל</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="example@giftly.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+            </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'טוען...' : mode === 'login' ? 'כניסה' : 'הרשמה'}
-          </button>
-        </form>
-        <button className="link-btn" onClick={switchMode}>
-          {mode === 'login' ? 'אין לך חשבון? הרשמה' : 'כבר יש לך חשבון? כניסה'}
-        </button>
-      </div>
+            <div className="form-field">
+              <label htmlFor="password">סיסמה</label>
+              <div className="password-wrapper">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+                <button type="button" className="eye-toggle" onClick={() => setShowPassword(s => !s)}>
+                  <span className="material-symbols-outlined">{showPassword ? 'visibility' : 'visibility_off'}</span>
+                </button>
+              </div>
+            </div>
+
+            {mode === 'signup' && (
+              <div className="form-field">
+                <label htmlFor="confirm">אימות סיסמה</label>
+                <div className="password-wrapper">
+                  <input
+                    id="confirm"
+                    type={showConfirm ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirm}
+                    onChange={e => setConfirm(e.target.value)}
+                    required
+                  />
+                  <button type="button" className="eye-toggle" onClick={() => setShowConfirm(s => !s)}>
+                    <span className="material-symbols-outlined">{showConfirm ? 'visibility' : 'visibility_off'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 8 }}>
+              {loading ? 'טוען...' : mode === 'login' ? 'התחברות' : 'יצירת חשבון'}
+            </button>
+          </form>
+
+          <div className="login-switch">
+            {mode === 'login' ? 'עדיין לא רשומים?' : 'כבר יש לך חשבון?'}
+            <button onClick={switchMode}>
+              {mode === 'login' ? 'יצירת חשבון חדש' : 'כניסה'}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Hero panel — second in RTL = left side */}
+      <section className="login-hero">
+        <div className="login-hero-text">
+          <img src="/logo.png" alt="Giftly" style={{ height: 90, objectFit: 'contain', marginBottom: 28, filter: 'drop-shadow(0 4px 16px rgba(79,70,229,0.25))' }} />
+          <h2>הופכים כל מתנה לאישית</h2>
+          <p>נהלו את רשימות המתנות שלכם בצורה חכמה ומעוצבת — עם עזרת AI.</p>
+        </div>
+      </section>
     </div>
   );
 }

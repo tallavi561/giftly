@@ -7,6 +7,8 @@ import DashboardPage from './pages/DashboardPage.js';
 import ContactPage from './pages/ContactPage.js';
 import SetupPage from './pages/SetupPage.js';
 import ApproveRequestPage from './pages/ApproveRequestPage.js';
+import ProfilePage from './pages/ProfilePage.js';
+import MyGiftsPage from './pages/MyGiftsPage.js';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -46,6 +48,8 @@ export default function App() {
         <Route path="/" element={<SetupGuard><DashboardPage /></SetupGuard>} />
         <Route path="/contact/:id" element={<SetupGuard><ContactPage /></SetupGuard>} />
         <Route path="/approve-request" element={<ApproveRequestPage />} />
+        <Route path="/profile" element={<SetupGuard><ProfilePage /></SetupGuard>} />
+        <Route path="/my-gifts" element={<SetupGuard><MyGiftsPage /></SetupGuard>} />
       </Routes>
     </AuthProvider>
   );

@@ -68,51 +68,45 @@ export default function EventForm({ initial, birthDate, onSubmit, onCancel }: Pr
   }
 
   return (
-    <form className="card form-card" onSubmit={handleSubmit}>
-      <select value={type} onChange={e => setType(e.target.value)}>
-        {PRESET_TYPES.map(t => <option key={t}>{t}</option>)}
-      </select>
-
-      {isOther && (
-        <input
-          placeholder="תאר את סוג האירוע..."
-          value={customType}
-          onChange={e => setCustomType(e.target.value)}
-          required
-        />
-      )}
-
-      <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
-
-      <input
-        type="number"
-        placeholder="תזכורת X ימים לפני"
-        value={reminderDays}
-        min={1}
-        onChange={e => setReminderDays(Math.max(1, Number(e.target.value)))}
-        required
-      />
-
-      <div className="row">
-        <input
-          type="number"
-          placeholder="תקציב מינימום ₪"
-          value={budgetMin}
-          min={0}
-          onChange={e => setBudgetMin(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="תקציב מקסימום ₪"
-          value={budgetMax}
-          min={0}
-          onChange={e => setBudgetMax(e.target.value)}
-        />
+    <form className="fields-stack" onSubmit={handleSubmit}>
+      <div className="field">
+        <label>סוג האירוע</label>
+        <select value={type} onChange={e => setType(e.target.value)}>
+          {PRESET_TYPES.map(t => <option key={t}>{t}</option>)}
+        </select>
       </div>
 
-      <div className="row">
-        <button type="submit" disabled={loading}>{loading ? 'שומר...' : 'שמור'}</button>
-        <button type="button" onClick={onCancel}>ביטול</button>
+      {isOther && (
+        <div className="field">
+          <label>תיאור האירוע</label>
+          <input placeholder="תאר את סוג האירוע..." value={customType} onChange={e => setCustomType(e.target.value)} required />
+        </div>
+      )}
+
+      <div className="field">
+        <label>תאריך</label>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
+      </div>
+
+      <label className="field-label">
+        כמה ימים לפני האירוע לשלוח לי תזכורת במייל?
+        <input type="number" value={reminderDays} min={1} onChange={e => setReminderDays(Math.max(1, Number(e.target.value)))} required />
+      </label>
+
+      <div className="fields-row">
+        <div className="field">
+          <label>תקציב מינימום ₪</label>
+          <input type="number" placeholder="0" value={budgetMin} min={0} onChange={e => setBudgetMin(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>תקציב מקסימום ₪</label>
+          <input type="number" placeholder="500" value={budgetMax} min={0} onChange={e => setBudgetMax(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="form-row-btns">
+        <button type="submit" className="btn-filled" disabled={loading}>{loading ? 'שומר...' : 'שמור'}</button>
+        <button type="button" className="btn-surface" onClick={onCancel}>ביטול</button>
       </div>
     </form>
   );

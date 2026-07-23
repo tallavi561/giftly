@@ -55,6 +55,11 @@ export const api = {
       return request<any[]>(`/recommendations?${params}`);
     },
   },
+  selfRecommendations: {
+    list: () => request<any[]>('/self-recommendations'),
+    rate: (id: string, rating: number) => request<any>(`/self-recommendations/${id}/rate`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
+    generate: () => request<any>('/self-recommendations/generate', { method: 'POST' }),
+  },
   contactRequests: {
     incoming: () => request<any[]>('/contact-requests/incoming'),
     outgoing: () => request<any[]>('/contact-requests/outgoing'),
