@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import cron from 'node-cron';
 import userProfileRouter from './routes/userProfile.js';
 import contactsRouter from './routes/contacts.js';
 import eventsRouter from './routes/events.js';
@@ -8,6 +9,7 @@ import giftsRouter from './routes/gifts.js';
 import recommendationsRouter from './routes/recommendations.js';
 import contactRequestsRouter from './routes/contactRequests.js';
 import selfRecommendationsRouter from './routes/selfRecommendations.js';
+import cronRouter, { runReminders } from './routes/cron.js';
 import { Logger } from './lib/logger.js';
 
 const logger = new Logger('server');
@@ -29,7 +31,16 @@ app.use('/api/gifts', giftsRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/contact-requests', contactRequestsRouter);
 app.use('/api/self-recommendations', selfRecommendationsRouter);
+app.use('/api/cron', cronRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, () => logger.info(`Giftly backend running on port ${PORT}`));
+app.listen(PORT, () => {
+  logger.info(`Giftly backend running on port ${PORT}`);
+
+  const cronExpr = process.env.REMINDER_CRON ?? '0 7 * * *';
+  cron.schedule(cronExpr, () => {
+    logger.info('Scheduled reminder cron triggered');
+    runReminders().catch(err => logger.error('Reminder cron failed', err));
+  }, { timezone: 'Asia/Jerusalem' });
+});
