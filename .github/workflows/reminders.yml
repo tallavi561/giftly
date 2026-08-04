@@ -1,0 +1,23 @@
+name: Daily Reminders
+
+on:
+  schedule:
+    # Runs every day at 07:00 Israel time (04:00 UTC in winter, 05:00 UTC in summer)
+    # Using 05:00 UTC as a reasonable middle ground
+    - cron: '0 5 * * *'
+  workflow_dispatch: # allows manual trigger from GitHub UI
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reminder endpoint
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "x-admin-secret: ${{ secrets.ADMIN_SECRET }}" \
+            "${{ secrets.BACKEND_URL }}/api/cron/reminders")
+          echo "Response status: $RESPONSE"
+          if [ "$RESPONSE" != "200" ]; then
+            echo "Reminder cron failed with status $RESPONSE"
+            exit 1
+          fi
