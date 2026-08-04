@@ -8,8 +8,17 @@ import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
 import { calcAge, formatLocation } from '../lib/utils.js';
+import AppShellLayout from '../components/AppShellLayout.js';
+import ContactProfileFields from '../components/ContactProfileFields.js';
 
 const logger = new Logger('ContactPage');
+
+const RELATIONSHIP_STATUS_HE: Record<string, string> = {
+  single: 'רווק/ה', married: 'נשוי/אה', divorced: 'גרוש/ה', widowed: 'אלמן/ה', cohabiting: 'ידועים בציבור',
+};
+const RELIGION_HE: Record<string, string> = {
+  jewish: 'יהודי/ה', muslim: 'מוסלמי/ת', christian: 'נוצרי/ת', druze: 'דרוזי/ת', secular: 'חילוני/ת', other: 'אחר',
+};
 
 const EVENT_ICONS: Record<string, string> = {
   'יום הולדת': 'cake',
@@ -37,9 +46,11 @@ export default function ContactPage() {
   const [contactForm, setContactForm] = useState<{
     name: string; relationship: string; interests: string[]; free_text: string;
     notes: string; gender: string; birth_date: string; city: string; country: string;
+    relationship_status: string; has_children: '' | 'true' | 'false'; religion: string;
   }>({
     name: '', relationship: '', interests: [], free_text: '', notes: '',
     gender: '', birth_date: '', city: '', country: '',
+    relationship_status: '', has_children: '', religion: '',
   });
 
   useEffect(() => {
@@ -61,6 +72,9 @@ export default function ContactPage() {
         birth_date: c.birth_date ?? '',
         city: c.city ?? '',
         country: c.country ?? '',
+        relationship_status: c.relationship_status ?? '',
+        has_children: c.has_children === true ? 'true' : c.has_children === false ? 'false' : '',
+        religion: c.religion ?? '',
       });
       setEvents(e);
       setRecommendations(r);
@@ -96,6 +110,9 @@ export default function ContactPage() {
       birth_date: contactForm.birth_date || null,
       city: contactForm.city || null,
       country: contactForm.country || null,
+      relationship_status: contactForm.relationship_status || null,
+      has_children: contactForm.has_children === 'true' ? true : contactForm.has_children === 'false' ? false : null,
+      religion: contactForm.religion || null,
     });
     logger.info('Contact updated', { id: updated.id });
     setContact(prev => ({ ...updated, user_profile: prev?.user_profile }));
@@ -146,24 +163,7 @@ export default function ContactPage() {
     : recommendations;
 
   return (
-    <div className="app-shell">
-      {/* Top Bar */}
-      <header className="top-bar">
-        <div className="top-bar-inner">
-          <div className="top-bar-brand">
-            <img src="/logo.png" alt="Giftly" />
-          </div>
-          <div className="top-bar-actions">
-            <button className="btn-signout" onClick={() => navigate('/')}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, marginLeft: 4 }}>arrow_forward</span>
-              חזרה
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="app-body">
-        <main className="main-content">
+    <AppShellLayout>
           {/* Page header */}
           <div className="contact-page-header">
             <button className="back-btn" onClick={() => navigate('/')}>
@@ -212,6 +212,24 @@ export default function ContactPage() {
                         <span className="profile-meta-value">{location}</span>
                       </div>
                     )}
+                    {contact.relationship_status && (
+                      <div className="profile-meta-row">
+                        <span className="profile-meta-label">מצב משפחתי</span>
+                        <span className="profile-meta-value">{RELATIONSHIP_STATUS_HE[contact.relationship_status] ?? contact.relationship_status}</span>
+                      </div>
+                    )}
+                    {contact.has_children !== null && contact.has_children !== undefined && (
+                      <div className="profile-meta-row">
+                        <span className="profile-meta-label">ילדים</span>
+                        <span className="profile-meta-value">{contact.has_children ? 'כן' : 'לא'}</span>
+                      </div>
+                    )}
+                    {contact.religion && (
+                      <div className="profile-meta-row">
+                        <span className="profile-meta-label">דת</span>
+                        <span className="profile-meta-value">{RELIGION_HE[contact.religion] ?? contact.religion}</span>
+                      </div>
+                    )}
                     {displayInterests?.length > 0 && (
                       <div style={{ marginTop: 12 }}>
                         <p className="profile-meta-label" style={{ marginBottom: 6 }}>תחומי עניין</p>
@@ -253,6 +271,7 @@ export default function ContactPage() {
                       <LocationBirthFields birth_date={contactForm.birth_date} city={contactForm.city} country={contactForm.country} onChange={(field, value) => setContactForm(f => ({ ...f, [field]: value }))} />
                     </>
                   )}
+                  <ContactProfileFields relationship_status={contactForm.relationship_status} has_children={contactForm.has_children} religion={contactForm.religion} onChange={(field, value) => setContactForm(f => ({ ...f, [field]: value }))} />
                   <div className="field"><label>הערות אישיות</label><textarea value={contactForm.notes} onChange={e => setContactForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
                   <div className="form-row-btns">
                     <button type="submit" className="btn-filled">שמור</button>
@@ -411,8 +430,6 @@ export default function ContactPage() {
               </section>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+    </AppShellLayout>
   );
 }

@@ -62,15 +62,19 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   let result;
   try {
     result = await generateGiftRecommendations({
-      profile: { name: effectiveName, relationship: contact.relationship, interests: effectiveInterests, free_text: effectiveBio, gender: effectiveGender },
+      profile: { name: effectiveName, relationship: contact.relationship, interests: effectiveInterests, free_text: effectiveBio, gender: effectiveGender, relationship_status: contact.relationship_status ?? null, has_children: contact.has_children ?? null, religion: contact.religion ?? null },
       event,
       budget_min: event.budget_min,
       budget_max: event.budget_max,
       pastGifts: pastGifts ?? [],
     });
   } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === 'GEMINI_QUOTA_EXCEEDED') {
+      return void res.status(429).json({ error: 'הגענו למגבלת ה-AI היומית. נסה שוב מחר.' });
+    }
     logger.error('Gemini generation failed', err);
-    return void res.status(502).json({ error: `Gemini error: ${(err as Error).message}` });
+    return void res.status(502).json({ error: `Gemini error: ${msg}` });
   }
 
   const toInsert = result.recommendations.map(r => ({

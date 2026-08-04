@@ -70,7 +70,12 @@ router.post('/generate', async (_req: Request, res: Response) => {
       if (ie) { logger.error('Insert suggestions failed', { user_id: profile.user_id, error: ie }); }
       else generated += rows.length;
     } catch (err) {
-      logger.error('Gemini failed for profile', { user_id: profile.user_id, err: (err as Error).message });
+      const msg = (err as Error).message;
+      if (msg === 'GEMINI_QUOTA_EXCEEDED') {
+        logger.warn('Global Gemini quota reached, stopping self-suggestions batch');
+        break;
+      }
+      logger.error('Gemini failed for profile', { user_id: profile.user_id, err: msg });
     }
   }
 

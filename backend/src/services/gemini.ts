@@ -1,10 +1,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Logger } from '../lib/logger.js';
+import { supabase } from '../lib/supabase.js';
 import type { Profile, Event, GiftHistory, GeminiRecommendation } from '../types/index.js';
 
 const logger = new Logger('gemini');
 const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+const RELATIONSHIP_STATUS_HE: Record<string, string> = {
+  single: 'רווק/ה', married: 'נשוי/אה', divorced: 'גרוש/ה', widowed: 'אלמן/ה', cohabiting: 'ידועים בציבור',
+};
+const RELIGION_HE: Record<string, string> = {
+  jewish: 'יהודי/ה', muslim: 'מוסלמי/ת', christian: 'נוצרי/ת', druze: 'דרוזי/ת', secular: 'חילוני/ת', other: 'אחר',
+};
 
 interface GenerateParams {
   profile: Profile;
@@ -28,7 +36,15 @@ export interface SelfProfile {
   country: string | null;
 }
 
+const GEMINI_DAILY_LIMIT = parseInt(process.env.GEMINI_DAILY_LIMIT ?? '40', 10);
+
+async function checkGeminiQuota(): Promise<void> {
+  const { data: allowed } = await supabase.rpc('try_increment_gemini', { max_calls: GEMINI_DAILY_LIMIT });
+  if (!allowed) throw new Error('GEMINI_QUOTA_EXCEEDED');
+}
+
 export async function generateSelfGiftSuggestions(profile: SelfProfile): Promise<GeminiRecommendation[]> {
+  await checkGeminiQuota();
   logger.info('Generating self suggestions', { name: profile.display_name });
 
   const age = profile.birth_date
@@ -72,6 +88,7 @@ ${profile.city ? `- מיקום: ${profile.city}, ${profile.country ?? ''}` : ''}
 }
 
 export async function generateGiftRecommendations(params: GenerateParams): Promise<GeminiResponse> {
+  await checkGeminiQuota();
   const { profile, event, budget_min, budget_max, pastGifts } = params;
 
   logger.info('Generating recommendations', { profile: profile.name, event: event.type });
@@ -87,6 +104,9 @@ export async function generateGiftRecommendations(params: GenerateParams): Promi
 - שם: ${profile.name}
 - מגדר: ${profile.gender === 'male' ? 'זכר' : profile.gender === 'female' ? 'נקבה' : profile.gender ? 'אחר' : 'לא ידוע'}
 - קשר: ${profile.relationship ?? ''}
+- מצב משפחתי: ${profile.relationship_status ? (RELATIONSHIP_STATUS_HE[profile.relationship_status] ?? profile.relationship_status) : 'לא ידוע'}
+- ילדים: ${profile.has_children === true ? 'כן' : profile.has_children === false ? 'לא' : 'לא ידוע'}
+- דת: ${profile.religion ? (RELIGION_HE[profile.religion] ?? profile.religion) : 'לא ידוע'}
 - תחומי עניין: ${(profile.interests ?? []).join(', ')}
 - תיאור חופשי: ${profile.free_text ?? ''}
 - אירוע: ${event.type}

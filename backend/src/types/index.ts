@@ -13,6 +13,9 @@ export interface Profile {
   interests: string[];
   free_text: string | null;
   gender: string | null;
+  relationship_status: string | null;
+  has_children: boolean | null;
+  religion: string | null;
 }
 
 export interface Event {

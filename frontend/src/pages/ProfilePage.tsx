@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
+import AppShellLayout from '../components/AppShellLayout.js';
+import ContactProfileFields from '../components/ContactProfileFields.js';
+import LocationBirthFields from '../components/LocationBirthFields.js';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -23,6 +26,9 @@ export default function ProfilePage() {
         country: p.country ?? '',
         interests: p.interests ?? [],
         privacy_level: p.privacy_level ?? 'approval',
+        relationship_status: p.relationship_status ?? '',
+        has_children: p.has_children === true ? 'true' : p.has_children === false ? 'false' : '' as '' | 'true' | 'false',
+        religion: p.religion ?? '',
       });
       setLoading(false);
     });
@@ -43,6 +49,9 @@ export default function ProfilePage() {
         country: form.country || null,
         interests: form.interests,
         privacy_level: form.privacy_level,
+        relationship_status: form.relationship_status || null,
+        has_children: form.has_children === 'true' ? true : form.has_children === 'false' ? false : null,
+        religion: form.religion || null,
       });
       navigate('/');
     } catch (err) {
@@ -57,21 +66,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="top-bar">
-        <div className="top-bar-inner">
-          <div className="top-bar-brand">
-            <img src="/logo.png" alt="Giftly" />
-          </div>
-          <div className="top-bar-actions">
-            <button className="btn-surface" onClick={() => navigate('/')} style={{ gap: 6, display: 'flex', alignItems: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_forward</span>
-              חזרה
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <AppShellLayout>
       <div className="profile-page-body">
         <div className="profile-page-card">
           <div className="profile-page-header">
@@ -104,20 +99,12 @@ export default function ProfilePage() {
                 <GenderSelect value={form.gender} onChange={v => set('gender', v)} />
               </div>
 
-              <div className="fields-row">
-                <div className="field">
-                  <label>תאריך לידה</label>
-                  <input type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>עיר</label>
-                  <input value={form.city} onChange={e => set('city', e.target.value)} placeholder="תל אביב" />
-                </div>
-                <div className="field">
-                  <label>מדינה</label>
-                  <input value={form.country} onChange={e => set('country', e.target.value)} placeholder="ישראל" />
-                </div>
-              </div>
+              <LocationBirthFields
+                birth_date={form.birth_date}
+                city={form.city}
+                country={form.country}
+                onChange={(field, value) => set(field, value)}
+              />
 
               <div className="field">
                 <label>תחביבים ותחומי עניין</label>
@@ -128,6 +115,13 @@ export default function ProfilePage() {
                 <label>ביו</label>
                 <textarea value={form.bio} onChange={e => set('bio', e.target.value)} rows={3} placeholder="כמה מילים על עצמך..." />
               </div>
+
+              <ContactProfileFields
+                relationship_status={form.relationship_status ?? ''}
+                has_children={form.has_children ?? ''}
+                religion={form.religion ?? ''}
+                onChange={(field, value) => set(field, value)}
+              />
 
               <div className="field">
                 <label>רמת פרטיות</label>
@@ -161,6 +155,6 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
-    </div>
+    </AppShellLayout>
   );
 }

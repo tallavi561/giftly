@@ -7,11 +7,13 @@ import type { Contact, ContactRequest, Recommendation, UserProfile } from '../ty
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
+import AppShellLayout from '../components/AppShellLayout.js';
+import ContactProfileFields from '../components/ContactProfileFields.js';
 
 
 const logger = new Logger('DashboardPage');
 
-const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', gender: '', birth_date: '', city: '', country: '' };
+const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', gender: '', birth_date: '', city: '', country: '', relationship_status: '', has_children: '' as '' | 'true' | 'false', religion: '' };
 
 const PRIVACY_BADGE: Record<string, string> = { public: '🔓', approval: '✋', password: '🔑' };
 const PRIVACY_ICON: Record<string, string> = { public: 'public', approval: 'pan_tool', password: 'lock' };
@@ -19,7 +21,7 @@ const PRIVACY_ICON: Record<string, string> = { public: 'public', approval: 'pan_
 function avatarLetter(name: string) { return name?.trim()?.[0] ?? '?'; }
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +100,9 @@ export default function DashboardPage() {
       birth_date: form.birth_date || null,
       city: form.city || null,
       country: form.country || null,
+      relationship_status: form.relationship_status || null,
+      has_children: form.has_children === 'true' ? true : form.has_children === 'false' ? false : null,
+      religion: form.religion || null,
     };
     if (linkedUser?.privacy_level === 'password') payload.privacy_password = privacyPassword;
     try {
@@ -152,48 +157,14 @@ export default function DashboardPage() {
 
   const pendingOut = outgoingRequests.filter(r => r.status === 'pending');
 
+  const historyBtn = (
+    <button className="icon-btn" onClick={openHistory} title="היסטוריה">
+      <span className="material-symbols-outlined">history</span>
+    </button>
+  );
+
   return (
-    <div className="app-shell">
-      {/* Top Bar */}
-      <header className="top-bar">
-        <div className="top-bar-inner">
-          <div className="top-bar-brand">
-            <img src="/logo.png" alt="Giftly" />
-          </div>
-          <div className="top-bar-actions">
-            <button className="icon-btn" onClick={() => navigate('/profile')} title="הפרופיל שלי">
-              <span className="material-symbols-outlined">account_circle</span>
-            </button>
-            <button className="icon-btn" onClick={openHistory} title="היסטוריה">
-              <span className="material-symbols-outlined">history</span>
-            </button>
-            <button className="btn-signout" onClick={signOut}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, marginLeft: 4 }}>logout</span>
-              יציאה
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="app-body">
-        {/* Side Nav */}
-        <nav className="side-nav">
-          <div className="side-nav-item active">
-            <span className="material-symbols-outlined icon-fill">contacts</span>
-            אנשי קשר
-          </div>
-          <div className="side-nav-item" onClick={() => navigate('/my-gifts')}>
-            <span className="material-symbols-outlined">favorite</span>
-            המתנות שלי
-          </div>
-          <div className="side-nav-item" style={{ cursor: 'default', opacity: 0.5 }}>
-            <span className="material-symbols-outlined">calendar_today</span>
-            לוח שנה
-          </div>
-        </nav>
-
-        {/* Main Content */}
-        <main className="main-content">
+    <AppShellLayout headerExtra={historyBtn}>
           {/* Requests */}
           {incomingRequests.length > 0 && (
             <div className="requests-section">
@@ -289,25 +260,6 @@ export default function DashboardPage() {
               })}
             </div>
           )}
-        </main>
-      </div>
-
-      {/* Mobile bottom nav */}
-      <nav className="mobile-nav">
-        <div className="mobile-nav-item active">
-          <span className="material-symbols-outlined icon-fill">contacts</span>
-          אנשי קשר
-        </div>
-        <div className="mobile-nav-item" onClick={openHistory}>
-          <span className="material-symbols-outlined">history</span>
-          היסטוריה
-        </div>
-        <div className="mobile-nav-item" onClick={() => navigate('/profile')}>
-          <span className="material-symbols-outlined">account_circle</span>
-          פרופיל
-        </div>
-      </nav>
-
       {/* Add Contact Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
@@ -401,6 +353,12 @@ export default function DashboardPage() {
                     country={form.country}
                     onChange={(field, value) => setForm(f => ({ ...f, [field]: value }))}
                   />
+                  <ContactProfileFields
+                    relationship_status={form.relationship_status}
+                    has_children={form.has_children}
+                    religion={form.religion}
+                    onChange={(field, value) => setForm(f => ({ ...f, [field]: value }))}
+                  />
                 </>
               )}
 
@@ -455,6 +413,6 @@ export default function DashboardPage() {
         </>
       )}
 
-    </div>
+    </AppShellLayout>
   );
 }

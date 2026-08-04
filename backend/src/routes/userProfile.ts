@@ -14,7 +14,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('user_profiles')
-    .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, created_at, updated_at')
+    .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, relationship_status, has_children, religion, created_at, updated_at')
     .eq('user_id', user.id)
     .single();
   if (error) return void res.status(404).json({ error: 'No profile yet' });
@@ -47,7 +47,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       interests, bio, gender: gender || null, birth_date: birth_date || null, city: city || null, country: country || null,
       privacy_level: level, privacy_password_hash: passwordHash,
     })
-    .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, created_at, updated_at')
+    .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, relationship_status, has_children, religion, created_at, updated_at')
     .single();
   if (error) {
     logger.error('Create user profile failed', error);
@@ -60,12 +60,16 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 // PATCH /api/user-profile — עדכון פרופיל
 router.patch('/', requireAuth, async (req: Request, res: Response) => {
   const { user, token } = req as AuthRequest;
-  const { display_name, nickname, interests, bio, gender, birth_date, city, country, privacy_level, privacy_password } =
+  const { display_name, nickname, interests, bio, gender, birth_date, city, country, privacy_level, privacy_password,
+          relationship_status, has_children, religion } =
     req.body as Record<string, unknown>;
 
   const updateData: Record<string, unknown> = {
     display_name, nickname, interests, bio, gender: gender || null,
     birth_date: birth_date || null, city: city || null, country: country || null,
+    relationship_status: relationship_status || null,
+    has_children: has_children !== undefined ? has_children : null,
+    religion: religion || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -85,7 +89,7 @@ router.patch('/', requireAuth, async (req: Request, res: Response) => {
     .from('user_profiles')
     .update(updateData)
     .eq('user_id', user.id)
-    .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, created_at, updated_at')
+    .select('user_id, display_name, nickname, email, interests, bio, birth_date, city, country, privacy_level, relationship_status, has_children, religion, created_at, updated_at')
     .single();
   if (error) {
     const msg = error.code === '23505' ? 'הכינוי כבר תפוס — בחר כינוי אחר' : error.message;
