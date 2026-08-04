@@ -37,6 +37,9 @@ export interface Contact {
   birth_date: string | null;
   city: string | null;
   country: string | null;
+  relationship_status: string | null;
+  has_children: boolean | null;
+  religion: string | null;
   created_at: string;
   user_profile?: UserProfile;
 }
