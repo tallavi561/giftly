@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logger } from '../lib/logger.js';
 
 const logger = new Logger('LoginPage');
+
+const VIDEO_LOOP = true;
 
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();
@@ -16,6 +18,30 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Slow down playback in the last 3 seconds, then stop
+  useEffect(() => {
+    if (VIDEO_LOOP) return;
+    const video = videoRef.current;
+    if (!video) return;
+    function onTimeUpdate() {
+      if (!video) return;
+      const timeLeft = video.duration - video.currentTime;
+      if (timeLeft <= 3) {
+        // quadratic ease-out: speed drops from 1 → ~0 over 3 seconds
+        const ratio = Math.max(0, timeLeft / 3);
+        video.playbackRate = Math.max(0.08, ratio * ratio);
+        if (timeLeft < 0.08) {
+          video.pause();
+        }
+      } else {
+        video.playbackRate = 1.0;
+      }
+    }
+    video.addEventListener('timeupdate', onTimeUpdate);
+    return () => video.removeEventListener('timeupdate', onTimeUpdate);
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -133,8 +159,17 @@ export default function LoginPage() {
 
       {/* Hero panel — second in RTL = left side */}
       <section className="login-hero">
-        <div className="login-hero-text">
-          <img src="/logo.png" alt="Giftly" style={{ height: 90, objectFit: 'contain', marginBottom: 28, filter: 'drop-shadow(0 4px 16px rgba(79,70,229,0.25))' }} />
+        <video
+          ref={videoRef}
+          className="login-hero-video"
+          src="/gift_video3.mp4"
+          autoPlay
+          loop={VIDEO_LOOP}
+          muted
+          playsInline
+        />
+        <div className="login-hero-overlay">
+          <img src="/logo.png" alt="Giftly" style={{ height: 72, objectFit: 'contain', marginBottom: 16 }} />
           <h2>הופכים כל מתנה לאישית</h2>
           <p>נהלו את רשימות המתנות שלכם בצורה חכמה ומעוצבת — עם עזרת AI.</p>
         </div>
