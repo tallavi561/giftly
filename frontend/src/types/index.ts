@@ -46,6 +46,7 @@ export interface Event {
   contact_id: string;
   type: string;
   date: string;
+  date_type: 'gregorian' | 'hebrew';
   reminder_days: number;
   budget_min: number | null;
   budget_max: number | null;
