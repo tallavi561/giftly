@@ -11,6 +11,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => ReturnType<typeof supabase.auth.signInWithPassword>;
   signUp: (email: string, password: string) => ReturnType<typeof supabase.auth.signUp>;
   signOut: () => ReturnType<typeof supabase.auth.signOut>;
+  resetPassword: (email: string) => ReturnType<typeof supabase.auth.resetPasswordForEmail>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -43,9 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logger.info('Sign out');
     return supabase.auth.signOut();
   };
+  const resetPassword = (email: string) => {
+    logger.info('Reset password requested', { email });
+    return supabase.auth.resetPasswordForEmail(email);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

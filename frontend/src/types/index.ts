@@ -10,6 +10,8 @@ export interface UserProfile {
   country: string | null;
   gender: 'male' | 'female' | 'other' | null;
   privacy_level: 'public' | 'approval' | 'password';
+  avatar_mode: 'illustrated' | 'silhouette' | 'photo';
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +42,8 @@ export interface Contact {
   relationship_status: string | null;
   has_children: boolean | null;
   religion: string | null;
+  avatar_mode: 'illustrated' | 'silhouette' | 'photo';
+  avatar_url: string | null;
   created_at: string;
   user_profile?: UserProfile;
 }
@@ -81,4 +85,5 @@ export interface Recommendation {
   score: number | null;
   created_at: string;
   contact?: { name: string };
+  image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
 }
