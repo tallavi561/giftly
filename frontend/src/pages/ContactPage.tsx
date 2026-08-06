@@ -7,9 +7,13 @@ import EventForm, { type EventFormValues } from '../components/EventForm.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
-import { calcAge, formatLocation } from '../lib/utils.js';
+import { calcAge, formatLocation, nextEventOccurrence, daysUntil } from '../lib/utils.js';
 import AppShellLayout from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
+import Avatar from '../components/Avatar.js';
+import AvatarPicker from '../components/AvatarPicker.js';
+import RecommendationCarousel from '../components/RecommendationCarousel.js';
+import { useAuth } from '../context/AuthContext.js';
 
 const logger = new Logger('ContactPage');
 
@@ -33,6 +37,7 @@ function eventIcon(type: string) {
 
 export default function ContactPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [contact, setContact] = useState<Contact | null>(null);
@@ -40,6 +45,7 @@ export default function ContactPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [editingAvatar, setEditingAvatar] = useState(false);
   const [showEventForm, setShowEventForm] = useState(searchParams.get('newContact') === 'true');
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingContact, setEditingContact] = useState(false);
@@ -119,6 +125,12 @@ export default function ContactPage() {
     setEditingContact(false);
   }
 
+  async function saveAvatar(mode: 'illustrated' | 'silhouette' | 'photo', url: string | null) {
+    if (!id) return;
+    const updated: any = await api.contacts.update(id, { avatar_mode: mode, avatar_url: url });
+    setContact(prev => (prev ? { ...prev, avatar_mode: updated.avatar_mode, avatar_url: updated.avatar_url } : prev));
+  }
+
   async function generateRecommendations() {
     if (!selectedEvent || !id) return;
     setGenerating(true);
@@ -147,6 +159,8 @@ export default function ContactPage() {
   const age = calcAge(displayBirthDate);
   const location = formatLocation(displayCity, displayCountry);
   const gender = linkedProfile?.gender ?? contact.gender;
+  const avatarMode = linkedProfile?.avatar_mode ?? contact.avatar_mode;
+  const avatarUrl = linkedProfile?.avatar_url ?? contact.avatar_url;
   const selectedEventObj = events.find(e => e.id === selectedEvent);
 
   // Budget filter: when an event is selected, keep only recs within its price range
@@ -180,7 +194,32 @@ export default function ContactPage() {
             {/* Left: profile card */}
             <section className="card" style={{ alignSelf: 'start' }}>
               <div className="profile-card-head">
-                <div className="profile-avatar-lg">{displayName?.[0] ?? '?'}</div>
+                <div className="profile-avatar-wrap">
+                  <Avatar name={displayName} gender={gender} birthDate={displayBirthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={88} className="profile-avatar-lg" />
+                  {!linkedProfile && (
+                    <button
+                      type="button"
+                      className="profile-avatar-edit-btn"
+                      onClick={() => setEditingAvatar(s => !s)}
+                      title="שינוי תמונה"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
+                    </button>
+                  )}
+                </div>
+                {editingAvatar && !linkedProfile && (
+                  <div style={{ marginTop: 12 }}>
+                    <AvatarPicker
+                      mode={avatarMode}
+                      url={avatarUrl}
+                      name={displayName}
+                      gender={gender}
+                      birthDate={displayBirthDate}
+                      uploadPathPrefix={`${user?.id}/contact-${id}`}
+                      onChange={saveAvatar}
+                    />
+                  </div>
+                )}
                 <h1 className="profile-display-name">{displayName}</h1>
                 {contact.relationship && <span className="profile-rel-chip">{contact.relationship}</span>}
               </div>
@@ -302,46 +341,54 @@ export default function ContactPage() {
                   </div>
                 )}
 
-                {events.map(ev => (
-                  <div key={ev.id}>
-                    {editingEventId === ev.id ? (
-                      <div className="event-form-card">
-                        <EventForm
-                          initial={{ type: ev.type, date: ev.date, reminder_days: ev.reminder_days, budget_min: ev.budget_min, budget_max: ev.budget_max }}
-                          birthDate={displayBirthDate}
-                          onSubmit={saveEditEvent}
-                          onCancel={() => setEditingEventId(null)}
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className={`event-item${selectedEvent === ev.id ? ' selected' : ''}`}
-                        onClick={() => setSelectedEvent(ev.id)}
-                      >
-                        <div className="event-icon">
-                          <span className="material-symbols-outlined">{eventIcon(ev.type)}</span>
+                {events.map(ev => {
+                  const occurrence = nextEventOccurrence(ev);
+                  const days = occurrence ? daysUntil(occurrence) : null;
+                  const soon = days !== null && days <= 6;
+                  return (
+                    <div key={ev.id}>
+                      {editingEventId === ev.id ? (
+                        <div className="event-form-card">
+                          <EventForm
+                            initial={{ type: ev.type, date: ev.date, reminder_days: ev.reminder_days, budget_min: ev.budget_min, budget_max: ev.budget_max }}
+                            birthDate={displayBirthDate}
+                            onSubmit={saveEditEvent}
+                            onCancel={() => setEditingEventId(null)}
+                          />
                         </div>
-                        <div className="event-info">
-                          <div className="event-type">{ev.type}</div>
-                          <div className="event-date">{new Date(ev.date).toLocaleDateString('he-IL')}</div>
-                          {ev.budget_min || ev.budget_max ? (
-                            <div className="event-reminder">
-                              תקציב: {ev.budget_min ?? 0}–{ev.budget_max ?? '∞'} ₪
-                            </div>
-                          ) : null}
-                        </div>
-                        <button
-                          className="btn-icon-sm"
-                          style={{ background: 'var(--surface-container)', color: 'var(--on-surface-variant)' }}
-                          onClick={e => { e.stopPropagation(); setEditingEventId(ev.id); }}
-                          title="עריכה"
+                      ) : (
+                        <div
+                          className={`event-countdown-card${selectedEvent === ev.id ? ' selected' : ''}${soon ? ' soon' : ''}`}
+                          onClick={() => setSelectedEvent(ev.id)}
                         >
-                          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          <div className="event-countdown-info">
+                            <h4>
+                              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{eventIcon(ev.type)}</span>
+                              {ev.type}
+                            </h4>
+                            <p>{occurrence ? occurrence.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' }) : '—'}</p>
+                            {ev.budget_min || ev.budget_max ? (
+                              <p className="event-countdown-budget">תקציב: {ev.budget_min ?? 0}–{ev.budget_max ?? '∞'} ₪</p>
+                            ) : null}
+                          </div>
+                          {days !== null && (
+                            <div className="event-countdown-days">
+                              <span className="num">{days}</span>
+                              <span className="unit">ימים</span>
+                            </div>
+                          )}
+                          <button
+                            className="event-countdown-edit"
+                            onClick={e => { e.stopPropagation(); setEditingEventId(ev.id); }}
+                            title="עריכה"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {events.length === 0 && !showEventForm && (
                   <div className="empty-state" style={{ padding: '24px 0' }}>
@@ -352,7 +399,7 @@ export default function ContactPage() {
               </section>
 
               {/* AI Recommendations */}
-              <section className="card" style={{ background: 'rgba(79,70,229,0.03)', borderColor: 'rgba(79,70,229,0.15)' }}>
+              <section className="card" style={{ background: 'rgba(88,81,219,0.03)', borderColor: 'rgba(88,81,219,0.15)' }}>
                 <div className="ai-section-header">
                   <div className="ai-badge">
                     <span className="material-symbols-outlined icon-fill" style={{ fontSize: 22 }}>auto_awesome</span>
@@ -404,28 +451,7 @@ export default function ContactPage() {
                       : 'בחר אירוע ולחץ "ייצר המלצות" לקבלת הצעות מ-AI'}
                   </div>
                 ) : (
-                  <div className="recs-grid">
-                    {displayedRecs.map(r => (
-                      <div key={r.id} className="rec-card">
-                        <div className="rec-card-header">
-                          <span className="rec-card-title">{r.title}</span>
-                          <span className="rec-card-price">~{r.estimated_price} ₪</span>
-                        </div>
-                        <div className="rec-card-body">
-                          <p className="rec-card-desc">{r.description}</p>
-                          <a
-                            className="rec-card-link"
-                            href={`https://www.google.com/search?q=${encodeURIComponent(r.search_query ?? r.title)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>search</span>
-                            חיפוש בגוגל
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <RecommendationCarousel items={displayedRecs} />
                 )}
               </section>
             </div>

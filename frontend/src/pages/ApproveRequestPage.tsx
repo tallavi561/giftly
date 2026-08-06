@@ -6,59 +6,53 @@ export default function ApproveRequestPage() {
   const result = params.get('result');
   const error  = params.get('error');
 
+  let icon = 'info';
+  let iconClass = '';
+  let heading = '';
+  let message = '';
+  let buttonLabel = 'לדף הבית';
+
   if (error) {
-    const msg = error === 'notfound'
+    icon = 'error';
+    iconClass = 'error';
+    heading = 'משהו השתבש';
+    message = error === 'notfound'
       ? 'הבקשה לא נמצאה — ייתכן שכבר טופלה או שהקישור פג תוקף.'
       : 'אירעה שגיאה בטיפול בבקשה. נסה שוב מהאפליקציה.';
-    return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <h1>🎁 Giftly</h1>
-          <p className="error" style={{ fontSize: '1rem' }}>{msg}</p>
-          <button onClick={() => navigate('/')}>לדף הבית</button>
-        </div>
-      </div>
-    );
+  } else if (result === 'approved') {
+    icon = 'check_circle';
+    iconClass = 'success';
+    heading = 'הבקשה אושרה!';
+    message = 'האיש קשר נוסף לרשימה שלהם. הם יוכלו כעת לקבל המלצות מתנה עבורך.';
+    buttonLabel = 'לדשבורד שלי';
+  } else if (result === 'rejected') {
+    icon = 'cancel';
+    iconClass = 'muted';
+    heading = 'הבקשה נדחתה';
+    message = 'הבקשה נדחתה בהצלחה. לא יישמר עליך שום מידע אצלם.';
+    buttonLabel = 'לדשבורד שלי';
+  } else {
+    icon = 'help';
+    iconClass = 'muted';
+    heading = 'הגעת לכאן בטעות';
+    message = 'השתמש בקישור שנשלח אליך במייל כדי לאשר או לדחות בקשת חיבור.';
   }
 
-  if (result === 'approved') {
-    return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <h1>🎁 Giftly</h1>
-          <h2 style={{ color: '#16a34a' }}>✅ הבקשה אושרה!</h2>
-          <p style={{ color: '#555', fontSize: '0.95rem' }}>
-            האיש קשר נוסף לרשימה שלהם. הם יוכלו כעת לקבל המלצות מתנה עבורך.
-          </p>
-          <button onClick={() => navigate('/')}>לדשבורד שלי</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (result === 'rejected') {
-    return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <h1>🎁 Giftly</h1>
-          <h2 style={{ color: '#dc2626' }}>❌ הבקשה נדחתה</h2>
-          <p style={{ color: '#555', fontSize: '0.95rem' }}>
-            הבקשה נדחתה בהצלחה. לא יישמר עליך שום מידע אצלם.
-          </p>
-          <button onClick={() => navigate('/')}>לדשבורד שלי</button>
-        </div>
-      </div>
-    );
-  }
-
-  // ללא result — המשתמש הגיע לדף ישירות
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h1>🎁 Giftly</h1>
-        <p style={{ color: '#555' }}>הגעת לדף זה בטעות. השתמש בקישור שנשלח אליך במייל.</p>
-        <button onClick={() => navigate('/')}>לדף הבית</button>
-      </div>
+    <div className="approve-root">
+      <div className="approve-logo">Giftly</div>
+      <main className="approve-card">
+        <div className={`approve-icon ${iconClass}`}>
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        </div>
+        <h1>{heading}</h1>
+        <p>{message}</p>
+        <button className="login-submit-btn" onClick={() => navigate('/')}>{buttonLabel}</button>
+        <div className="approve-footer">
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
+          הפרטיות שלך תמיד בשליטתך
+        </div>
+      </main>
     </div>
   );
 }

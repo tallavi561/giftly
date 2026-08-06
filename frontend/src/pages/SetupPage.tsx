@@ -2,8 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
+import { useAuth } from '../context/AuthContext.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
+import AvatarPicker, { type AvatarMode } from '../components/AvatarPicker.js';
 
 const logger = new Logger('SetupPage');
 
@@ -36,10 +38,12 @@ const GENDER_OPTIONS = [
 
 export default function SetupPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [form, setForm] = useState({
     display_name: '', nickname: '', interests: [] as string[], bio: '',
     gender: '', birth_date: '', city: '', country: '',
     privacy_level: 'approval', privacy_password: '', privacy_password_confirm: '',
+    avatar_mode: 'illustrated' as AvatarMode, avatar_url: null as string | null,
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,6 +72,8 @@ export default function SetupPage() {
         country: form.country || null,
         privacy_level: form.privacy_level,
         privacy_password: form.privacy_level === 'password' ? form.privacy_password : undefined,
+        avatar_mode: form.avatar_mode,
+        avatar_url: form.avatar_url,
       });
       logger.info('User profile created');
       navigate('/');
@@ -82,79 +88,103 @@ export default function SetupPage() {
     <div className="setup-root">
       <div className="setup-card">
         <div className="setup-card-header">
-          <img src="/logo.png" alt="Giftly" className="logo" />
-          <h1>בואו נכיר קצת יותר</h1>
-          <p>כדי שנוכל לעזור לך להפוך כל מתנה למשמעותית — נשמח לכמה פרטים.</p>
+          <h1>ברוכים הבאים ל-Giftly</h1>
+          <p>בואו נכיר אתכם קצת יותר כדי שנוכל להציע את המתנות המושלמות.</p>
         </div>
 
         <div className="setup-card-body">
           <form onSubmit={handleSubmit} className="fields-stack">
 
-            <div className="fields-row">
+            <section className="setup-section ai-border">
+              <h2 className="setup-section-title accent">תמונת פרופיל</h2>
+              <AvatarPicker
+                mode={form.avatar_mode}
+                url={form.avatar_url}
+                name={form.display_name || 'א'}
+                gender={form.gender}
+                birthDate={form.birth_date}
+                uploadPathPrefix={`${user?.id}/self`}
+                onChange={(mode, url) => setForm(f => ({ ...f, avatar_mode: mode, avatar_url: url }))}
+              />
+            </section>
+
+            <section className="setup-section">
+              <h2 className="setup-section-title">פרטים בסיסיים</h2>
+              <div className="fields-row">
+                <div className="field">
+                  <label>שם מלא *</label>
+                  <input
+                    placeholder="לדוגמה: ישראל ישראלי"
+                    value={form.display_name}
+                    onChange={e => setField('display_name', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>כינוי ייחודי *</label>
+                  <input
+                    placeholder="@username"
+                    value={form.nickname}
+                    onChange={e => setField('nickname', e.target.value.toLowerCase().replace(/\s/g, '_'))}
+                    required
+                  />
+                </div>
+              </div>
+
               <div className="field">
-                <label>שם מלא</label>
-                <input
-                  placeholder="למשל: דניאל לוי"
-                  value={form.display_name}
-                  onChange={e => setField('display_name', e.target.value)}
-                  required
+                <label>מגדר</label>
+                <div className="gender-pills">
+                  {GENDER_OPTIONS.map(g => (
+                    <button
+                      key={g.value}
+                      type="button"
+                      className={`gender-pill${form.gender === g.value ? ' selected' : ''}`}
+                      onClick={() => setField('gender', form.gender === g.value ? '' : g.value)}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="setup-section">
+              <h2 className="setup-section-title">מיקום ותקציר</h2>
+              <LocationBirthFields
+                birth_date={form.birth_date}
+                city={form.city}
+                country={form.country}
+                onChange={setField}
+              />
+              <div className="field">
+                <label>קצת עליי (Bio)</label>
+                <textarea
+                  placeholder="ספר/י לנו על עצמך..."
+                  value={form.bio}
+                  onChange={e => setField('bio', e.target.value)}
+                  rows={3}
                 />
               </div>
-              <div className="field">
-                <label>כינוי ייחודי</label>
-                <input
-                  placeholder="daniel_levy"
-                  value={form.nickname}
-                  onChange={e => setField('nickname', e.target.value.toLowerCase().replace(/\s/g, '_'))}
-                  required
-                />
-              </div>
-            </div>
+            </section>
 
-            <div className="field">
-              <label>מגדר</label>
-              <div className="gender-pills">
-                {GENDER_OPTIONS.map(g => (
-                  <button
-                    key={g.value}
-                    type="button"
-                    className={`gender-pill${form.gender === g.value ? ' selected' : ''}`}
-                    onClick={() => setField('gender', form.gender === g.value ? '' : g.value)}
-                  >
-                    {g.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field">
-              <label>תחומי עניין</label>
+            <section className="setup-section ai-border">
+              <h2 className="setup-section-title accent">
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--heritage-gold)' }}>auto_awesome</span>
+                תחומי עניין
+              </h2>
+              <p className="setup-section-hint">נוסיף תחומי עניין כדי שה-AI שלנו יוכל להציע מתנות מדויקות יותר.</p>
               <TagInput
                 value={form.interests}
                 onChange={tags => setForm(f => ({ ...f, interests: tags }))}
                 placeholder="הקלד ולחץ פסיק — טכנולוגיה, בישול..."
               />
-            </div>
+            </section>
 
-            <LocationBirthFields
-              birth_date={form.birth_date}
-              city={form.city}
-              country={form.country}
-              onChange={setField}
-            />
-
-            <div className="field">
-              <label>ספר על עצמך (אופציונלי)</label>
-              <textarea
-                placeholder="מה אתה אוהב, מה מעניין אותך..."
-                value={form.bio}
-                onChange={e => setField('bio', e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div className="field">
-              <label>מי יכול לשמור אותך כאיש קשר?</label>
+            <section className="setup-section privacy-box">
+              <h2 className="setup-section-title">
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--outline)' }}>lock</span>
+                הגדרות פרטיות פרופיל
+              </h2>
               <div className="privacy-selector">
                 {PRIVACY_OPTIONS.map(opt => (
                   <label
@@ -174,27 +204,29 @@ export default function SetupPage() {
                   </label>
                 ))}
               </div>
-            </div>
 
-            {form.privacy_level === 'password' && (
-              <div className="fields-row">
-                <div className="field">
-                  <label>קוד גישה</label>
-                  <input type="password" placeholder="הגדר קוד" value={form.privacy_password} onChange={e => setField('privacy_password', e.target.value)} required />
+              {form.privacy_level === 'password' && (
+                <div className="fields-row" style={{ marginTop: 12 }}>
+                  <div className="field">
+                    <label>קוד גישה</label>
+                    <input type="password" placeholder="הגדר קוד" value={form.privacy_password} onChange={e => setField('privacy_password', e.target.value)} required />
+                  </div>
+                  <div className="field">
+                    <label>אימות קוד</label>
+                    <input type="password" placeholder="חזור על הקוד" value={form.privacy_password_confirm} onChange={e => setField('privacy_password_confirm', e.target.value)} required />
+                  </div>
                 </div>
-                <div className="field">
-                  <label>אימות קוד</label>
-                  <input type="password" placeholder="חזור על הקוד" value={form.privacy_password_confirm} onChange={e => setField('privacy_password_confirm', e.target.value)} required />
-                </div>
-              </div>
-            )}
+              )}
+            </section>
 
             {error && <p className="error">{error}</p>}
 
-            <button type="submit" className="btn-filled" disabled={loading} style={{ padding: '14px', fontSize: '16px', marginTop: 8 }}>
-              {loading ? 'שומר...' : 'שמירה והתחלה'}
-              {!loading && <span className="material-symbols-outlined" style={{ fontSize: 18, marginRight: 6 }}>arrow_back</span>}
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="submit" className="btn-filled" disabled={loading} style={{ padding: '14px 32px', fontSize: '16px', borderRadius: 'var(--r-full)' }}>
+                {loading ? 'שומר...' : 'כניסה לאפליקציה'}
+                {!loading && <span className="material-symbols-outlined" style={{ fontSize: 18, marginRight: 6 }}>arrow_back</span>}
+              </button>
+            </div>
           </form>
         </div>
       </div>
