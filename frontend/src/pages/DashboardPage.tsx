@@ -1,15 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
-import type { Contact, ContactRequest, Recommendation, UserProfile } from '../types/index.js';
+import type { Contact, ContactRequest, Event, Recommendation, UserProfile } from '../types/index.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
 import AppShellLayout from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
-
+import Avatar from '../components/Avatar.js';
+import { nextEventOccurrence, daysUntil } from '../lib/utils.js';
 
 const logger = new Logger('DashboardPage');
 
@@ -17,13 +18,18 @@ const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free
 
 const PRIVACY_BADGE: Record<string, string> = { public: '🔓', approval: '✋', password: '🔑' };
 const PRIVACY_ICON: Record<string, string> = { public: 'public', approval: 'pan_tool', password: 'lock' };
-
-function avatarLetter(name: string) { return name?.trim()?.[0] ?? '?'; }
+const EVENT_TYPE_ICONS: Record<string, string> = {
+  'יום הולדת': 'cake',
+  'יום נישואין': 'favorite',
+  'חג': 'celebration',
+  'סיום לימודים': 'school',
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -46,11 +52,13 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       api.contacts.list(),
+      api.events.list(),
       api.contactRequests.incoming().catch(() => []),
       api.contactRequests.outgoing().catch(() => []),
-    ]).then(([c, inc, out]: any[]) => {
+    ]).then(([c, ev, inc, out]: any[]) => {
       logger.info('Dashboard loaded');
       setContacts(c);
+      setEvents(ev);
       setIncomingRequests(inc);
       setOutgoingRequests(out);
       setLoading(false);
@@ -59,6 +67,30 @@ export default function DashboardPage() {
       setLoading(false);
     });
   }, []);
+
+  // For each contact, find their soonest upcoming event (if any)
+  const nextEventByContact = useMemo(() => {
+    const map: Record<string, { type: string; daysUntil: number }> = {};
+    for (const ev of events) {
+      const occurrence = nextEventOccurrence(ev);
+      if (!occurrence) continue;
+      const days = daysUntil(occurrence);
+      const existing = map[ev.contact_id];
+      if (!existing || days < existing.daysUntil) {
+        map[ev.contact_id] = { type: ev.type, daysUntil: days };
+      }
+    }
+    return map;
+  }, [events]);
+
+  function formatCountdown(days: number): string {
+    if (days === 0) return 'היום!';
+    if (days === 1) return 'מחר!';
+    if (days <= 6) return `בעוד ${days} ימים!`;
+    if (days <= 13) return 'בעוד שבוע';
+    if (days <= 45) return `בעוד ${Math.round(days / 7)} שבועות`;
+    return 'חודש הבא';
+  }
 
   async function openHistory() {
     setShowHistory(true);
@@ -229,32 +261,43 @@ export default function DashboardPage() {
               אין עדיין אנשי קשר. לחץ על "הוסף איש קשר" כדי להתחיל.
             </div>
           ) : (
-            <div className="contacts-grid">
+            <div className="contacts-list">
               {contacts.map(c => {
                 const name = (c.user_profile as any)?.display_name ?? c.name;
-                const gender = (c.user_profile as any)?.gender ?? c.gender;
+                const gender = c.user_profile?.gender ?? c.gender;
+                const avatarMode = c.user_profile?.avatar_mode ?? c.avatar_mode;
+                const avatarUrl = c.user_profile?.avatar_url ?? c.avatar_url;
+                const birthDate = c.user_profile?.birth_date ?? c.birth_date;
+                const nextEvent = nextEventByContact[c.id];
+                const eventTier = !nextEvent ? 'empty' : nextEvent.daysUntil <= 6 ? 'soon' : nextEvent.daysUntil <= 45 ? 'gold' : '';
                 return (
-                  <div key={c.id} className="contact-card" onClick={() => navigate(`/contact/${c.id}`)}>
-                    <div className="contact-avatar">{avatarLetter(name)}</div>
-                    <h3>{name}</h3>
-                    {c.relationship && <p className="rel">{c.relationship}</p>}
-                    {gender && (
-                      <p className="gender-chip">
-                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>person</span>
-                        {gender === 'male' ? 'גבר' : gender === 'female' ? 'אישה' : 'אחר'}
-                      </p>
-                    )}
-                    {c.user_profile && (
-                      <p className="linked-badge">
-                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{PRIVACY_ICON[(c.user_profile as any).privacy_level] ?? 'link'}</span>
-                        @{(c.user_profile as any).nickname}
-                      </p>
-                    )}
-                    {(c.interests?.length > 0) && (
-                      <div className="tags">
-                        {c.interests.slice(0, 3).map(i => <span key={i} className="tag">{i}</span>)}
+                  <div key={c.id} className="contact-row" onClick={() => navigate(`/contact/${c.id}`)}>
+                    <div className="contact-row-hover-edge" />
+                    <div className="contact-row-main">
+                      <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
+                      <div className="contact-row-info">
+                        <h3>{name}</h3>
+                        <div className="contact-row-chips">
+                          {c.relationship && <span className="contact-row-chip">{c.relationship}</span>}
+                          {c.user_profile && (
+                            <span className="contact-row-linked">
+                              <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{PRIVACY_ICON[(c.user_profile as any).privacy_level] ?? 'link'}</span>
+                              @{(c.user_profile as any).nickname}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
+                    <div className={`contact-row-event${eventTier ? ` ${eventTier}` : ''}`}>
+                      {nextEvent ? (
+                        <>
+                          <span className="material-symbols-outlined icon-fill">{EVENT_TYPE_ICONS[nextEvent.type] ?? 'event'}</span>
+                          <span>{formatCountdown(nextEvent.daysUntil)}</span>
+                        </>
+                      ) : (
+                        <span>אין אירועים קרובים</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}

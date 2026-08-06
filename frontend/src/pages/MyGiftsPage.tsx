@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
 import AppShellLayout from '../components/AppShellLayout.js';
+import { gradientForCategory } from '../lib/utils.js';
 
 const logger = new Logger('MyGiftsPage');
 
@@ -13,172 +14,121 @@ interface SelfSuggestion {
   search_query: string | null;
   rating: number | null;
   created_at: string;
+  image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
 }
 
-const CATEGORY_COLORS = [
-  { bg: 'var(--secondary-container)', color: 'var(--on-secondary-container)' },
-  { bg: 'var(--tertiary-fixed)',       color: 'var(--on-tertiary-fixed-variant)' },
-  { bg: 'var(--primary-fixed)',        color: 'var(--primary)' },
-];
-
-function categoryStyle(category: string | null) {
-  if (!category) return CATEGORY_COLORS[0];
-  const idx = Math.abs(category.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % CATEGORY_COLORS.length;
-  return CATEGORY_COLORS[idx];
+function burstCelebration(container: HTMLElement) {
+  const colors = ['#D4AF37', '#5851DB', '#ffffff'];
+  const symbols = ['star', 'favorite', 'auto_awesome'];
+  for (let i = 0; i < 16; i++) {
+    const particle = document.createElement('span');
+    particle.className = 'material-symbols-outlined mg-particle';
+    particle.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    particle.style.color = colors[Math.floor(Math.random() * colors.length)];
+    particle.style.left = (35 + Math.random() * 30) + '%';
+    particle.style.bottom = '140px';
+    particle.style.fontSize = (20 + Math.random() * 20) + 'px';
+    particle.style.fontVariationSettings = "'FILL' 1";
+    const duration = 0.8 + Math.random() * 0.7;
+    const tx = (Math.random() * 200 - 100) + 'px';
+    const ty = -(100 + Math.random() * 180) + 'px';
+    particle.animate(
+      [
+        { transform: 'translate(0,0) scale(0.5)', opacity: 1 },
+        { transform: `translate(${tx}, ${ty}) scale(1.4) rotate(${Math.random() * 180}deg)`, opacity: 0 },
+      ],
+      { duration: duration * 1000, easing: 'ease-out', fill: 'forwards' },
+    );
+    container.appendChild(particle);
+    setTimeout(() => particle.remove(), duration * 1000);
+  }
 }
 
-function StarRating({ value, onChange }: { value: number | null; onChange: (r: number) => void }) {
+function StarRating({ value, big, onChange }: { value: number | null; big?: boolean; onChange: (r: number) => void }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const display = hovered ?? value ?? 0;
-  const isRated = value !== null;
   return (
-    <div className="mg-star-rating" onMouseLeave={() => setHovered(null)}>
+    <div className={`mg-star-rating${big ? ' big' : ''}`} onMouseLeave={() => setHovered(null)}>
       {[1, 2, 3, 4, 5].map(n => (
         <button
           key={n}
           type="button"
           className={`mg-star-btn${display >= n ? ' active' : ''}`}
-          style={{ color: isRated && display >= n ? 'var(--primary)' : undefined }}
           onMouseEnter={() => setHovered(n)}
           onClick={() => onChange(n)}
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontVariationSettings: display >= n ? "'FILL' 1" : "'FILL' 0" }}
-          >star</span>
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: display >= n ? "'FILL' 1" : "'FILL' 0" }}>star</span>
         </button>
       ))}
     </div>
   );
 }
 
-export default function MyGiftsPage() {
-  const [suggestions, setSuggestions] = useState<SelfSuggestion[]>([]);
-  const [loading, setLoading] = useState(true);
+function FeedCard({ s, onRate }: { s: SelfSuggestion; onRate: (id: string, r: number) => void }) {
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    api.selfRecommendations.list().then(data => {
-      setSuggestions(data);
-      setLoading(false);
-    }).catch(err => {
-      logger.error('Load self suggestions failed', err);
-      setLoading(false);
-    });
-  }, []);
-
-  async function handleRate(id: string, rating: number) {
-    setSuggestions(prev => prev.map(s => s.id === id ? { ...s, rating } : s));
-    try {
-      await api.selfRecommendations.rate(id, rating);
-    } catch (err) {
-      logger.error('Rate failed', err);
-    }
+  function handleRate(r: number) {
+    const wasUnrated = s.rating === null;
+    onRate(s.id, r);
+    if (wasUnrated && cardRef.current) burstCelebration(cardRef.current);
   }
 
-  const unrated = suggestions.filter(s => s.rating === null);
-  const rated   = suggestions.filter(s => s.rating !== null);
-
   return (
-    <AppShellLayout>
-      <div className="mg-main">
-        {/* Hero */}
-        <section className="mg-hero">
-          <h1>המתנות שלי</h1>
-          <p>המלצות AI שנבחרו במיוחד בשבילך</p>
-        </section>
-
-        {loading ? (
-          <div className="ai-loader" style={{ paddingTop: 80 }}>
-            <div className="ai-loader-dots"><span /><span /><span /></div>
-            <p className="ai-loader-text">טוען...</p>
-          </div>
-        ) : suggestions.length === 0 ? (
-          <EmptyState />
+    <section className="mg-feed-item" ref={cardRef}>
+      {s.image_url ? (
+        <img className="mg-feed-img" src={s.image_url} alt={s.title} />
+      ) : (
+        <div className="mg-feed-img mg-feed-placeholder" style={{ background: gradientForCategory(s.category) }}>
+          <span className="material-symbols-outlined">card_giftcard</span>
+        </div>
+      )}
+      <div className="mg-feed-scrim" />
+      <div className="mg-feed-content">
+        {s.rating === null ? (
+          <span className="mg-feed-badge">הצעה בשבילך</span>
         ) : (
-          <>
-            {unrated.length > 0 && (
-              <section className="mg-section">
-                <div className="mg-section-header">
-                  <h2>הצעות חדשות</h2>
-                  <div className="mg-divider" />
-                </div>
-                <div className="mg-grid">
-                  {unrated.map(s => <UnratedCard key={s.id} s={s} onRate={handleRate} />)}
-                </div>
-              </section>
-            )}
-
-            {rated.length > 0 && (
-              <section className="mg-section">
-                <div className="mg-section-header">
-                  <h2>מתנות שדורגו</h2>
-                  <div className="mg-divider" />
-                </div>
-                <div className="mg-grid mg-grid-rated">
-                  {rated.map(s => <RatedCard key={s.id} s={s} onRate={handleRate} />)}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-    </AppShellLayout>
-  );
-}
-
-function UnratedCard({ s, onRate }: { s: SelfSuggestion; onRate: (id: string, r: number) => void }) {
-  const cat = categoryStyle(s.category);
-  return (
-    <article className="mg-card mg-card-unrated">
-      <div className="mg-card-top">
-        {s.category && (
-          <span className="mg-category-tag" style={{ background: cat.bg, color: cat.color }}>
-            {s.category}
+          <span className="mg-feed-badge rated">
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check</span>
+            דורג
           </span>
         )}
+        <div className="typing-container">
+          <h2 className="mg-feed-title typing-text">{s.title}</h2>
+        </div>
+        {s.description && <p className="mg-feed-desc typing-desc">{s.description}</p>}
+        {s.category && <span className="mg-feed-category">{s.category}</span>}
+
+        <div className="mg-feed-rating-area">
+          <p>{s.rating === null ? 'דרג את ההצעה' : `דירגת ב-${s.rating} כוכבים`}</p>
+          <StarRating value={s.rating} big onChange={handleRate} />
+          {s.search_query && (
+            <a
+              className="mg-feed-search"
+              href={`https://www.google.com/search?q=${encodeURIComponent(s.search_query)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
+              חפש ב-Google
+            </a>
+          )}
+        </div>
       </div>
-      <div className="mg-card-body">
-        <h3>{s.title}</h3>
-        {s.description && <p>{s.description}</p>}
-      </div>
-      <div className="mg-card-footer">
-        <StarRating value={s.rating} onChange={r => onRate(s.id, r)} />
-        {s.search_query && (
-          <a
-            className="mg-search-btn"
-            href={`https://www.google.com/search?q=${encodeURIComponent(s.search_query)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>search</span>
-            חפש ב-Google
-          </a>
-        )}
-      </div>
-    </article>
+    </section>
   );
 }
 
-function RatedCard({ s, onRate }: { s: SelfSuggestion; onRate: (id: string, r: number) => void }) {
+function EndOfFeed({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
   return (
-    <article className="mg-card mg-card-rated">
-      <div className="mg-card-top">
-        {s.category && (
-          <span className="mg-category-tag mg-category-tag-muted">{s.category}</span>
-        )}
-        <span
-          className="material-symbols-outlined"
-          style={{ color: 'var(--primary)', fontVariationSettings: "'FILL' 1", fontSize: 20 }}
-        >check_circle</span>
-      </div>
-      <div className="mg-card-body">
-        <h3>{s.title}</h3>
-        <p>דירגת מוצר זה ב-{s.rating} כוכבים</p>
-      </div>
-      <div className="mg-card-footer">
-        <StarRating value={s.rating} onChange={r => onRate(s.id, r)} />
-      </div>
-    </article>
+    <section className="mg-feed-item mg-feed-end">
+      <span className="material-symbols-outlined mg-feed-end-icon">check_circle</span>
+      <h2>ראית הכל!</h2>
+      <p>הצעות חדשות מתווספות מדי פעם על סמך הפרופיל שלך — בדוק שוב בקרוב.</p>
+      <button className="btn-filled" onClick={onRefresh} disabled={refreshing}>
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+        {refreshing ? 'בודק...' : 'רענן'}
+      </button>
+    </section>
   );
 }
 
@@ -189,5 +139,115 @@ function EmptyState() {
       <h2>כמעט שם...</h2>
       <p>ה-AI שלנו עובד קשה כדי להכיר אותך טוב יותר. ברגע שנסיים לנתח את הפרופיל שלך, המלצות אישיות ומדויקות יופיעו כאן.</p>
     </div>
+  );
+}
+
+export default function MyGiftsPage() {
+  const [suggestions, setSuggestions] = useState<SelfSuggestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const feedRef = useRef<HTMLDivElement>(null);
+
+  function loadSuggestions() {
+    return api.selfRecommendations.list().then(data => {
+      setSuggestions(data);
+    }).catch(err => {
+      logger.error('Load self suggestions failed', err);
+    });
+  }
+
+  useEffect(() => {
+    loadSuggestions().finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const container = feedRef.current;
+    if (!container) return;
+    const items = Array.from(container.querySelectorAll<HTMLElement>('.mg-feed-item'));
+    const observer = new IntersectionObserver(
+      entries => {
+        const visible = entries.find(e => e.isIntersecting);
+        if (visible) setActiveIndex(items.indexOf(visible.target as HTMLElement));
+      },
+      { root: container, threshold: 0.6 },
+    );
+    items.forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, [suggestions, loading]);
+
+  async function handleRate(id: string, rating: number) {
+    setSuggestions(prev => prev.map(s => s.id === id ? { ...s, rating } : s));
+    try {
+      await api.selfRecommendations.rate(id, rating);
+    } catch (err) {
+      logger.error('Rate failed', err);
+    }
+  }
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadSuggestions();
+    setRefreshing(false);
+  }
+
+  function scrollToIndex(idx: number) {
+    const container = feedRef.current;
+    if (!container) return;
+    const items = container.querySelectorAll<HTMLElement>('.mg-feed-item');
+    items[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const dotCount = suggestions.length + 1; // + the end-of-feed card
+
+  return (
+    <AppShellLayout fullBleed>
+      {loading ? (
+        <div className="ai-loader" style={{ paddingTop: 80 }}>
+          <div className="ai-loader-dots"><span /><span /><span /></div>
+          <p className="ai-loader-text">טוען...</p>
+        </div>
+      ) : suggestions.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="mg-feed-wrap">
+          <div className="mg-feed hide-scrollbar" ref={feedRef}>
+            {dotCount > 1 && (
+              <div className="mg-feed-dots">
+                {Array.from({ length: dotCount }).map((_, i) => (
+                  <div key={i} className={`mg-feed-dot${i === activeIndex ? ' active' : ''}`} />
+                ))}
+              </div>
+            )}
+            {suggestions.map(s => <FeedCard key={s.id} s={s} onRate={handleRate} />)}
+            <EndOfFeed onRefresh={handleRefresh} refreshing={refreshing} />
+          </div>
+
+          {/* Desktop-only up/down navigation — mobile keeps plain touch/scroll swiping */}
+          {dotCount > 1 && (
+            <div className="mg-feed-nav">
+              <button
+                type="button"
+                className="mg-feed-nav-btn"
+                onClick={() => scrollToIndex(activeIndex - 1)}
+                disabled={activeIndex === 0}
+                title="הקודם"
+              >
+                <span className="material-symbols-outlined">keyboard_arrow_up</span>
+              </button>
+              <button
+                type="button"
+                className="mg-feed-nav-btn"
+                onClick={() => scrollToIndex(activeIndex + 1)}
+                disabled={activeIndex === dotCount - 1}
+                title="הבא"
+              >
+                <span className="material-symbols-outlined">keyboard_arrow_down</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </AppShellLayout>
   );
 }

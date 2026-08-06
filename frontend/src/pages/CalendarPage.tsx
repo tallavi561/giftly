@@ -193,27 +193,16 @@ export default function CalendarPage() {
                   const dayEvents = eventsByDay[day] ?? [];
                   const active = selectedDay === day;
                   const today = isToday(day);
+                  const dotColor = dayEvents.length > 0 ? eventIcon(dayEvents[0].event_type).color : null;
                   return (
                     <div
                       key={day}
                       className={`cal-cell cal-day${active ? ' cal-day-active' : ''}${today ? ' cal-day-today' : ''}`}
+                      style={dotColor && !today ? { background: `${dotColor}14` } : undefined}
                       onClick={() => setSelectedDay(day)}
                     >
                       <span className="cal-day-num">{day}</span>
-                      {dayEvents.length > 0 && (
-                        <div className="cal-day-icons">
-                          {dayEvents.slice(0, 3).map(ev => {
-                            const { icon, color } = eventIcon(ev.event_type);
-                            return (
-                              <span
-                                key={ev.id}
-                                className="material-symbols-outlined cal-cell-icon"
-                                style={{ color }}
-                              >{icon}</span>
-                            );
-                          })}
-                        </div>
-                      )}
+                      {dotColor && <div className="cal-day-dot" style={{ background: dotColor }} />}
                     </div>
                   );
                 })}
@@ -237,10 +226,10 @@ export default function CalendarPage() {
                       const { icon, color, label } = eventIcon(ev.event_type);
                       return (
                         <div key={ev.id} className="cal-event-card">
-                          <div className="cal-event-icon-wrap" style={{ background: `${color}22` }}>
+                          <div className="cal-event-icon-wrap" style={{ background: `${color}1a` }}>
                             <span
                               className="material-symbols-outlined"
-                              style={{ color, fontVariationSettings: ev.event_type === 'holiday' ? "'FILL' 1" : "'FILL' 0" }}
+                              style={{ color, fontVariationSettings: "'FILL' 1" }}
                             >{icon}</span>
                           </div>
                           <div className="cal-event-info">
@@ -256,7 +245,7 @@ export default function CalendarPage() {
                             className="cal-goto-btn"
                             onClick={() => navigate(`/contact/${ev.contact_id}`)}
                           >
-                            צפה באיש קשר
+                            מצא מתנה
                           </button>
                         </div>
                       );
@@ -267,40 +256,47 @@ export default function CalendarPage() {
             )}
           </div>
 
-          {/* Right: Upcoming events */}
-          <div className="cal-right">
-            <div className="cal-upcoming-card">
-              <h3>אירועים קרובים</h3>
-              {loading ? (
-                <div className="ai-loader"><div className="ai-loader-dots"><span/><span/><span/></div></div>
-              ) : upcomingGrouped.length === 0 ? (
-                <p className="cal-no-events">אין אירועים קרובים</p>
-              ) : (
-                <div className="cal-timeline">
-                  {upcomingGrouped.map((group, gi) => (
-                    <div key={gi} className={`cal-timeline-group${gi === 0 ? ' cal-timeline-first' : ''}`}>
-                      <div className="cal-timeline-dot" style={{ background: gi === 0 ? 'var(--primary)' : 'var(--outline-variant)' }} />
-                      <div className="cal-timeline-date" style={{ color: gi === 0 ? 'var(--primary)' : 'var(--on-surface-variant)' }}>
-                        {group.label}
-                      </div>
-                      {group.evts.map(ev => {
-                        const { icon, color } = eventIcon(ev.event_type);
-                        return (
-                          <div
-                            key={ev.id}
-                            className="cal-timeline-item"
-                            onClick={() => navigate(`/contact/${ev.contact_id}`)}
-                          >
-                            <span className="material-symbols-outlined" style={{ color, fontSize: 20 }}>{icon}</span>
-                            <span className="cal-timeline-name">{ev.event_name || ev.contact_name}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* Upcoming events */}
+          <div className="cal-upcoming-section">
+            <div className="cal-section-title">
+              <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>upcoming</span>
+              <h2>אירועים קרובים</h2>
             </div>
+            {loading ? (
+              <div className="ai-loader"><div className="ai-loader-dots"><span/><span/><span/></div></div>
+            ) : upcomingGrouped.length === 0 ? (
+              <p className="cal-no-events">אין אירועים קרובים</p>
+            ) : (
+              <div className="cal-event-cards">
+                {upcomingGrouped.map((group, gi) => (
+                  <div key={gi} className="cal-upcoming-group">
+                    <span className="cal-upcoming-date">{group.label}</span>
+                    {group.evts.map(ev => {
+                      const { icon, color, label } = eventIcon(ev.event_type);
+                      return (
+                        <div key={ev.id} className="cal-event-card">
+                          <div className="cal-event-icon-wrap" style={{ background: `${color}1a` }}>
+                            <span className="material-symbols-outlined" style={{ color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                          </div>
+                          <div className="cal-event-info">
+                            <div className="cal-event-name">{ev.contact_name}</div>
+                            <div className="cal-event-contact">
+                              <span className="cal-event-type-label" style={{ color }}>{label}</span>
+                              {ev.date_type === 'hebrew' && (
+                                <span className="cal-hebrew-badge">{formatHebrewDate(ev.date)}</span>
+                              )}
+                            </div>
+                          </div>
+                          <button className="cal-goto-btn" onClick={() => navigate(`/contact/${ev.contact_id}`)}>
+                            מצא מתנה
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

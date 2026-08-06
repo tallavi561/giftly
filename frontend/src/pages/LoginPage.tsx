@@ -1,14 +1,12 @@
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logger } from '../lib/logger.js';
 
 const logger = new Logger('LoginPage');
 
-const VIDEO_LOOP = true;
-
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,30 +16,13 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Slow down playback in the last 3 seconds, then stop
-  useEffect(() => {
-    if (VIDEO_LOOP) return;
-    const video = videoRef.current;
-    if (!video) return;
-    function onTimeUpdate() {
-      if (!video) return;
-      const timeLeft = video.duration - video.currentTime;
-      if (timeLeft <= 3) {
-        // quadratic ease-out: speed drops from 1 → ~0 over 3 seconds
-        const ratio = Math.max(0, timeLeft / 3);
-        video.playbackRate = Math.max(0.08, ratio * ratio);
-        if (timeLeft < 0.08) {
-          video.pause();
-        }
-      } else {
-        video.playbackRate = 1.0;
-      }
-    }
-    video.addEventListener('timeupdate', onTimeUpdate);
-    return () => video.removeEventListener('timeupdate', onTimeUpdate);
-  }, []);
+  function switchMode(next: 'login' | 'signup') {
+    setMode(next);
+    setError('');
+    setPassword('');
+    setConfirm('');
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -67,25 +48,38 @@ export default function LoginPage() {
     navigate('/');
   }
 
-  function switchMode() {
-    setMode(m => m === 'login' ? 'signup' : 'login');
+  async function handleForgotPassword() {
+    if (!email) { setError('הזן קודם את כתובת האימייל שלך למעלה'); return; }
     setError('');
-    setPassword('');
-    setConfirm('');
+    const { error: err } = await resetPassword(email);
+    setError(err ? err.message : 'נשלח אליך מייל לאיפוס הסיסמה');
   }
 
   return (
     <div className="login-root">
-      {/* Form panel — first in RTL = right side */}
-      <section className="login-form-panel">
-        <div className="login-form-inner">
+      <main className="login-card">
+        <div className="login-card-header-glow" />
+        <div className="login-card-body">
           <div className="login-logo">
             <img src="/logo.png" alt="Giftly" />
+            <h1>Giftly</h1>
           </div>
 
-          <div className="login-header">
-            <h1>{mode === 'login' ? 'ברוכים הבאים!' : 'יצירת חשבון חדש'}</h1>
-            <p>{mode === 'login' ? 'כיף לראות אתכם שוב' : 'הצטרפו לקהילת Giftly'}</p>
+          <div className="login-tabs">
+            <button
+              type="button"
+              className={`login-tab${mode === 'login' ? ' active' : ''}`}
+              onClick={() => switchMode('login')}
+            >
+              התחברות
+            </button>
+            <button
+              type="button"
+              className={`login-tab${mode === 'signup' ? ' active' : ''}`}
+              onClick={() => switchMode('signup')}
+            >
+              הרשמה
+            </button>
           </div>
 
           {error && (
@@ -96,11 +90,11 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit}>
             <div className="form-field">
-              <label htmlFor="email">כתובת אימייל</label>
+              <label htmlFor="email">דואר אלקטרוני</label>
               <input
                 id="email"
                 type="email"
-                placeholder="example@giftly.com"
+                placeholder="הכנס אימייל"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -113,7 +107,7 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="הכנס סיסמה"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
@@ -131,7 +125,7 @@ export default function LoginPage() {
                   <input
                     id="confirm"
                     type={showConfirm ? 'text' : 'password'}
-                    placeholder="••••••••"
+                    placeholder="חזור על הסיסמה"
                     value={confirm}
                     onChange={e => setConfirm(e.target.value)}
                     required
@@ -143,37 +137,19 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 8 }}>
-              {loading ? 'טוען...' : mode === 'login' ? 'התחברות' : 'יצירת חשבון'}
+            {mode === 'login' && (
+              <div className="login-forgot">
+                <button type="button" onClick={handleForgotPassword}>שכחתי סיסמה?</button>
+              </div>
+            )}
+
+            <button type="submit" className="login-submit-btn" disabled={loading}>
+              <span className="material-symbols-outlined">{mode === 'login' ? 'login' : 'person_add'}</span>
+              {loading ? 'טוען...' : mode === 'login' ? 'כניסה' : 'הרשמה'}
             </button>
           </form>
-
-          <div className="login-switch">
-            {mode === 'login' ? 'עדיין לא רשומים?' : 'כבר יש לך חשבון?'}
-            <button onClick={switchMode}>
-              {mode === 'login' ? 'יצירת חשבון חדש' : 'כניסה'}
-            </button>
-          </div>
         </div>
-      </section>
-
-      {/* Hero panel — second in RTL = left side */}
-      <section className="login-hero">
-        <video
-          ref={videoRef}
-          className="login-hero-video"
-          src="/gift_video3.mp4"
-          autoPlay
-          loop={VIDEO_LOOP}
-          muted
-          playsInline
-        />
-        <div className="login-hero-overlay">
-          <img src="/logo.png" alt="Giftly" style={{ height: 72, objectFit: 'contain', marginBottom: 16 }} />
-          <h2>הופכים כל מתנה לאישית</h2>
-          <p>נהלו את רשימות המתנות שלכם בצורה חכמה ומעוצבת — עם עזרת AI.</p>
-        </div>
-      </section>
+      </main>
     </div>
   );
 }
