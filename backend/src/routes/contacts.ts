@@ -30,7 +30,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('contacts')
-    .select('*, user_profile:user_profiles(user_id, display_name, nickname, interests, bio, birth_date, city, country, privacy_level)')
+    .select('*, user_profile:user_profiles(user_id, display_name, nickname, interests, bio, gender, birth_date, city, country, privacy_level, avatar_mode, avatar_url)')
     .order('name');
   if (error) { logger.error('List contacts failed', error); return void res.status(500).json({ error: error.message }); }
   res.json(data);
@@ -42,7 +42,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('contacts')
-    .select('*, user_profile:user_profiles(user_id, display_name, nickname, interests, bio, birth_date, city, country, privacy_level)')
+    .select('*, user_profile:user_profiles(user_id, display_name, nickname, interests, bio, gender, birth_date, city, country, privacy_level, avatar_mode, avatar_url)')
     .eq('id', req.params.id)
     .single();
   if (error) return void res.status(404).json({ error: 'Contact not found' });
@@ -53,7 +53,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   const { user, token } = req as AuthRequest;
   const { name, relationship, linked_user_id, interests, free_text, notes, gender, birth_date, city, country,
-          relationship_status, has_children, religion, privacy_password } =
+          relationship_status, has_children, religion, privacy_password, avatar_mode, avatar_url } =
     req.body as Record<string, unknown>;
 
   // בדיקת פרטיות אם יש linked_user_id
@@ -113,7 +113,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('contacts')
-    .insert({ owner_id: user.id, name, relationship, linked_user_id: linked_user_id ?? null, interests, free_text, notes: notes || null, gender: gender || null, birth_date: birth_date || null, city: city || null, country: country || null, relationship_status: relationship_status || null, has_children: has_children ?? null, religion: religion || null })
+    .insert({ owner_id: user.id, name, relationship, linked_user_id: linked_user_id ?? null, interests, free_text, notes: notes || null, gender: gender || null, birth_date: birth_date || null, city: city || null, country: country || null, relationship_status: relationship_status || null, has_children: has_children ?? null, religion: religion || null, avatar_mode: (avatar_mode as string) || 'illustrated', avatar_url: avatar_url || null })
     .select()
     .single();
   if (error) { logger.error('Create contact failed', error); return void res.status(400).json({ error: error.message }); }
@@ -124,12 +124,15 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
   const { token } = req as AuthRequest;
   const { name, relationship, linked_user_id, interests, free_text, notes, gender, birth_date, city, country,
-          relationship_status, has_children, religion } =
+          relationship_status, has_children, religion, avatar_mode, avatar_url } =
     req.body as Record<string, unknown>;
+  const updateData: Record<string, unknown> = { name, relationship, linked_user_id: linked_user_id ?? null, interests, free_text, notes: notes || null, gender: gender || null, birth_date: birth_date || null, city: city || null, country: country || null, relationship_status: relationship_status || null, has_children: has_children ?? null, religion: religion || null };
+  if (avatar_mode !== undefined) updateData.avatar_mode = avatar_mode;
+  if (avatar_url !== undefined) updateData.avatar_url = avatar_url || null;
   const db = supabaseForUser(token);
   const { data, error } = await db
     .from('contacts')
-    .update({ name, relationship, linked_user_id: linked_user_id ?? null, interests, free_text, notes: notes || null, gender: gender || null, birth_date: birth_date || null, city: city || null, country: country || null, relationship_status: relationship_status || null, has_children: has_children ?? null, religion: religion || null })
+    .update(updateData)
     .eq('id', req.params.id)
     .select()
     .single();
