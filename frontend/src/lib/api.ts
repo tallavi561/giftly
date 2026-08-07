@@ -3,6 +3,11 @@ import { Logger } from './logger.js';
 
 const logger = new Logger('api');
 
+// In dev, Vite proxies /api to localhost:3001 (see vite.config.ts), so a
+// relative path works. In production the frontend and backend are separate
+// deployments, so VITE_API_URL must point at the backend's own origin.
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -11,7 +16,7 @@ async function authHeaders() {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = await authHeaders();
-  const res = await fetch(`/api${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}/api${path}`, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     logger.error(`${options.method ?? 'GET'} ${path} failed`, err);
