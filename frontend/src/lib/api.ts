@@ -3,6 +3,14 @@ import { Logger } from './logger.js';
 
 const logger = new Logger('api');
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 // In dev, Vite proxies /api to localhost:3001 (see vite.config.ts), so a
 // relative path works. In production the frontend and backend are separate
 // deployments, so VITE_API_URL must point at the backend's own origin.
@@ -20,10 +28,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     logger.error(`${options.method ?? 'GET'} ${path} failed`, err);
-    throw new Error(err.error || 'Request failed');
+    throw new ApiError(err.error || 'Request failed', res.status);
   }
   if (res.status === 204) return null as T;
-  return res.json();
+  try {
+    return await res.json();
+  } catch (e) {
+    // Empty/truncated body despite a 2xx status — typically a Render free-tier
+    // cold start dropping the connection mid-response. Surface a retryable
+    // message instead of the raw "Unexpected end of JSON input" exception.
+    logger.error(`${options.method ?? 'GET'} ${path} returned an invalid response body`, e);
+    throw new Error('החיבור לשרת נכשל, נסה שוב בעוד כמה שניות');
+  }
 }
 
 export const api = {

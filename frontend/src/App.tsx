@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { useEffect, useState, type ReactNode } from 'react';
-import { api } from './lib/api.js';
+import { api, ApiError } from './lib/api.js';
 import LoginPage from './pages/LoginPage.js';
 import DashboardPage from './pages/DashboardPage.js';
 import ContactPage from './pages/ContactPage.js';
@@ -19,24 +19,28 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 function SetupGuard({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const [checked, setChecked] = useState(false);
-  const [hasSelf, setHasSelf] = useState(false);
+  const [status, setStatus] = useState<'checking' | 'has-profile' | 'no-profile' | 'error'>('checking');
 
   useEffect(() => {
     if (!user) return;
-    api.userProfile.me().then(() => {
-      setHasSelf(true);
-      setChecked(true);
-    }).catch(() => {
-      setHasSelf(false);
-      setChecked(true);
-    });
+    setStatus('checking');
+    api.userProfile.me()
+      .then(() => setStatus('has-profile'))
+      .catch(err => setStatus(err instanceof ApiError && err.status === 404 ? 'no-profile' : 'error'));
   }, [user]);
 
   if (loading) return <div className="loading">טוען...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (!checked) return <div className="loading">טוען...</div>;
-  if (!hasSelf) return <Navigate to="/setup" replace />;
+  if (status === 'checking') return <div className="loading">טוען...</div>;
+  if (status === 'error') {
+    return (
+      <div className="loading">
+        <p>לא הצלחנו להתחבר לשרת. בדוק את החיבור ונסה שוב.</p>
+        <button type="button" onClick={() => window.location.reload()}>נסה שוב</button>
+      </div>
+    );
+  }
+  if (status === 'no-profile') return <Navigate to="/setup" replace />;
   return <>{children}</>;
 }
 

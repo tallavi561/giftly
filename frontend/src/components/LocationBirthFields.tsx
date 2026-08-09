@@ -16,32 +16,52 @@ const DEFAULT_HY = currentHebrewYear() - 25;
 export default function LocationBirthFields({ birth_date, city, country, onChange }: Props) {
   const [calType, setCalType] = useState<'gregorian' | 'hebrew'>('gregorian');
 
-  // Hebrew sub-state (only used when calType === 'hebrew')
-  const [hYear,  setHYear]  = useState(DEFAULT_HY);
-  const [hMonth, setHMonth] = useState(7);  // Tishrei
-  const [hDay,   setHDay]   = useState(1);
+  // Hebrew sub-state (only used when calType === 'hebrew').
+  // Year/day are kept as raw strings while editing so the field can be
+  // fully cleared (e.g. to delete the default "1" and type "23") without
+  // snapping back to a clamped value on every keystroke; clamping/validation
+  // happens on blur instead.
+  const [hYearStr, setHYearStr] = useState(String(DEFAULT_HY));
+  const [hMonth,   setHMonth]   = useState(7);  // Tishrei
+  const [hDayStr,  setHDayStr]  = useState('1');
+
+  const hYear = Number(hYearStr) || DEFAULT_HY;
+  const hDay = Number(hDayStr) || 1;
 
   const hebrewMonths = getHebrewMonths(hYear);
   const maxHDay = daysInHebrewMonth(hMonth, hYear);
 
   // Clamp day when month/year changes
   useEffect(() => {
-    if (hDay > maxHDay) setHDay(maxHDay);
+    if (hDay > maxHDay) setHDayStr(String(maxHDay));
   }, [hMonth, hYear]);
 
-  // When any Hebrew field changes → convert and emit
+  // When any Hebrew field changes (and is validly filled in) → convert and emit
   useEffect(() => {
     if (calType !== 'hebrew') return;
+    if (hYearStr === '' || hDayStr === '') return;
     const greg = hebrewToGregorianDate(hYear, hMonth, hDay);
     if (greg) onChange('birth_date', greg);
-  }, [calType, hYear, hMonth, hDay]);
+  }, [calType, hYear, hMonth, hDay, hYearStr, hDayStr]);
 
   function switchToHebrew() {
     setCalType('hebrew');
     // Reset to defaults (can't reliably reverse-convert an existing gregorian date)
-    setHYear(DEFAULT_HY);
+    setHYearStr(String(DEFAULT_HY));
     setHMonth(7);
-    setHDay(1);
+    setHDayStr('1');
+  }
+
+  function commitHYear() {
+    const n = Number(hYearStr);
+    if (hYearStr === '' || Number.isNaN(n)) { setHYearStr(String(DEFAULT_HY)); return; }
+    setHYearStr(String(Math.min(5900, Math.max(5700, n))));
+  }
+
+  function commitHDay() {
+    const n = Number(hDayStr);
+    if (hDayStr === '' || Number.isNaN(n)) { setHDayStr('1'); return; }
+    setHDayStr(String(Math.min(maxHDay, Math.max(1, n))));
   }
 
   function switchToGregorian() {
@@ -51,7 +71,7 @@ export default function LocationBirthFields({ birth_date, city, country, onChang
   }
 
   // Gregorian preview label shown below Hebrew picker
-  const gregPreview = calType === 'hebrew'
+  const gregPreview = calType === 'hebrew' && hYearStr !== '' && hDayStr !== ''
     ? hebrewToGregorianDate(hYear, hMonth, hDay) ?? ''
     : '';
 
@@ -104,8 +124,9 @@ export default function LocationBirthFields({ birth_date, city, country, onChang
                   type="number"
                   min={5700}
                   max={5900}
-                  value={hYear}
-                  onChange={e => setHYear(Number(e.target.value))}
+                  value={hYearStr}
+                  onChange={e => setHYearStr(e.target.value)}
+                  onBlur={commitHYear}
                 />
               </div>
               <div className="field">
@@ -122,8 +143,9 @@ export default function LocationBirthFields({ birth_date, city, country, onChang
                   type="number"
                   min={1}
                   max={maxHDay}
-                  value={hDay}
-                  onChange={e => setHDay(Math.min(maxHDay, Math.max(1, Number(e.target.value))))}
+                  value={hDayStr}
+                  onChange={e => setHDayStr(e.target.value)}
+                  onBlur={commitHDay}
                 />
               </div>
             </div>
