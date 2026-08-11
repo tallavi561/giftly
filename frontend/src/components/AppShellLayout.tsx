@@ -40,18 +40,6 @@ export default function AppShellLayout({ children, headerExtra, fullBleed }: Pro
       {/* Top Bar */}
       <header className="top-bar">
         <div className="top-bar-inner">
-          <button className="top-bar-avatar-btn" onClick={() => navigate('/profile')} title="הפרופיל שלי">
-            <Avatar
-              name={me?.display_name ?? '?'}
-              gender={me?.gender}
-              birthDate={me?.birth_date}
-              avatarMode={me?.avatar_mode}
-              avatarUrl={me?.avatar_url}
-              size={40}
-              className="top-bar-avatar"
-            />
-          </button>
-          <h1 className="top-bar-wordmark">Giftly</h1>
           <div className="top-bar-actions">
             {headerExtra}
             <button className="icon-btn" title="התראות">
@@ -59,6 +47,20 @@ export default function AppShellLayout({ children, headerExtra, fullBleed }: Pro
             </button>
             <button className="icon-btn" onClick={signOut} title="יציאה">
               <span className="material-symbols-outlined">logout</span>
+            </button>
+          </div>
+          <div className="top-bar-brand">
+            <h1 className="top-bar-wordmark">Giftly</h1>
+            <button className="top-bar-avatar-btn" onClick={() => navigate('/profile')} title="הפרופיל שלי">
+              <Avatar
+                name={me?.display_name ?? '?'}
+                gender={me?.gender}
+                birthDate={me?.birth_date}
+                avatarMode={me?.avatar_mode}
+                avatarUrl={me?.avatar_url}
+                size={40}
+                className="top-bar-avatar"
+              />
             </button>
           </div>
         </div>

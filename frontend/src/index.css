@@ -54,6 +54,12 @@
   --shadow-2: 0px 8px 20px rgba(79,70,229,0.09);
   --shadow-3: 0px 16px 40px rgba(79,70,229,0.16);
   --shadow-celebratory: 0px 10px 25px rgba(79,70,229,0.12);
+  /* Big, soft, floaty resting shadow for cards — matches UX-UI/GEMINI's
+     .contact-card (0 10px 25px rgba(85,60,130,0.05)) as their DEFAULT
+     state, not just on hover, which is what actually reads as "premium". */
+  --shadow-card: 0px 10px 25px rgba(79,70,229,0.06);
+
+  --wordmark: #4a3372;
 
   --r-sm: 12px;
   --r-md: 18px;
@@ -281,24 +287,24 @@ a { text-decoration: none; color: inherit; }
   box-shadow: var(--shadow-1);
 }
 .top-bar-inner {
-  display: grid; grid-template-columns: auto 1fr auto;
-  align-items: center;
+  display: flex; align-items: center; justify-content: space-between;
   max-width: 1200px; margin: 0 auto;
   padding: 0 24px; height: 64px; gap: 16px;
 }
+/* Avatar grouped right next to the wordmark (not centered on its own),
+   per UX-UI/GEMINI's header — DOM order puts .top-bar-actions first so it
+   lands on the RTL-start (physical right) and the brand cluster on the left. */
+.top-bar-brand { display: flex; align-items: center; gap: 10px; }
 .top-bar-wordmark {
-  grid-column: 2; justify-self: center;
-  font-size: 22px; font-weight: 800; color: var(--royal-purple);
+  font-size: 22px; font-weight: 800; color: var(--wordmark);
   letter-spacing: -0.01em;
 }
 .top-bar-avatar-btn {
-  grid-column: 1; justify-self: start;
   display: flex; border-radius: var(--r-full);
   transition: opacity 0.15s;
 }
 .top-bar-avatar-btn:hover { opacity: 0.85; }
 .top-bar-avatar { box-shadow: 0 0 0 2px var(--primary-fixed) !important; }
-.top-bar-actions { grid-column: 3; justify-self: end; }
 
 .top-bar-search {
   flex: 1; max-width: 400px;
@@ -464,7 +470,7 @@ a { text-decoration: none; color: inherit; }
   background: var(--surface-white);
   border-radius: var(--r-lg);
   border: 1px solid rgba(43,33,41,0.08);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-card);
   padding: 24px;
   transition: box-shadow 0.2s;
 }
@@ -501,7 +507,7 @@ a { text-decoration: none; color: inherit; }
   border-radius: var(--r-lg);
   padding: 18px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   transition: box-shadow 0.2s, transform 0.15s;
 }
@@ -871,13 +877,13 @@ a { text-decoration: none; color: inherit; }
   background: var(--primary-fixed);
   color: var(--royal-purple);
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(43,33,41,0.08);
+  box-shadow: 0 0 0 3px var(--primary-fixed);
 }
 .avatar-photo {
   border-radius: var(--r-full);
   overflow: hidden;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 4px 14px rgba(43,33,41,0.14);
+  box-shadow: 0 0 0 3px var(--primary-fixed);
 }
 .avatar-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
