@@ -402,16 +402,22 @@ a { text-decoration: none; color: inherit; }
 .section-actions h2 { font-size: 18px; font-weight: 600; color: var(--on-surface); }
 
 /* ── Buttons ── */
+/* Floating circular action button, per UX-UI/GEMINI's .fab — icon only,
+   fixed to the viewport corner instead of an inline text pill. */
 .btn-fab {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 20px; border-radius: var(--r-full);
-  background: var(--primary); color: var(--on-primary);
-  font-size: 14px; font-weight: 600;
-  box-shadow: var(--shadow-1);
+  position: fixed; bottom: 92px; left: 24px; z-index: 40;
+  width: 56px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-full);
+  background: linear-gradient(135deg, var(--primary), var(--surface-tint));
+  color: var(--on-primary);
+  font-size: 24px;
+  box-shadow: 0 10px 22px rgba(79,70,229,0.35);
   transition: box-shadow 0.2s, transform 0.15s;
 }
-.btn-fab:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
-.btn-fab:active { transform: scale(0.98); }
+.btn-fab:hover { box-shadow: 0 12px 26px rgba(79,70,229,0.42); transform: translateY(-1px); }
+.btn-fab:active { transform: scale(0.96); }
+@media (min-width: 769px) { .btn-fab { bottom: 32px; } }
 
 .btn-surface {
   display: flex; align-items: center; gap: 6px;
@@ -1299,7 +1305,6 @@ a { text-decoration: none; color: inherit; }
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   box-shadow: 0 -4px 12px rgba(43,33,41,0.08);
   height: 76px;
-  flex-direction: row-reverse;
   justify-content: space-around;
   align-items: center; padding: 0 8px;
 }

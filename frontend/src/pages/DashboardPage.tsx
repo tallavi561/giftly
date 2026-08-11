@@ -240,17 +240,16 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Header + Add button */}
-          <div className="section-actions">
-            <div className="page-heading" style={{ marginBottom: 0 }}>
-              <h1 style={{ fontSize: 28 }}>אנשי הקשר שלי</h1>
-              <p>אירועים קרובים ששווה להתכונן אליהם</p>
-            </div>
-            <button className="btn-fab" onClick={openForm}>
-              <span className="material-symbols-outlined">add</span>
-              הוסף איש קשר
-            </button>
+          {/* Header */}
+          <div className="page-heading" style={{ marginBottom: 0 }}>
+            <h1 style={{ fontSize: 28 }}>אנשי הקשר שלי</h1>
+            <p>אירועים קרובים ששווה להתכונן אליהם</p>
           </div>
+
+          {/* Floating add-contact button */}
+          <button className="btn-fab" onClick={openForm} title="הוסף איש קשר">
+            <span className="material-symbols-outlined">add</span>
+          </button>
 
           {/* Contacts grid */}
           {loading ? (
