@@ -61,8 +61,7 @@ export default function LoginPage() {
         <div className="login-card-header-glow" />
         <div className="login-card-body">
           <div className="login-logo">
-            <img src="/logo.png" alt="Giftly" />
-            <h1>Giftly</h1>
+            <img src="/logo-wordmark.png" alt="Giftly" />
           </div>
 
           <div className="login-tabs">

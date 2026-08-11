@@ -64,13 +64,19 @@ function StarRating({ value, big, onChange }: { value: number | null; big?: bool
   );
 }
 
-function FeedCard({ s, onRate }: { s: SelfSuggestion; onRate: (id: string, r: number) => void }) {
+function FeedCard({ s, isActive, onRate }: { s: SelfSuggestion; isActive: boolean; onRate: (id: string, r: number) => void }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  // Bump on every activation so the title/description key changes below force
+  // a remount, replaying the reveal animation each time the card is scrolled to
+  // (CSS animations only auto-play once, at mount).
+  const [playKey, setPlayKey] = useState(0);
+  useEffect(() => {
+    if (isActive) setPlayKey(k => k + 1);
+  }, [isActive]);
 
   function handleRate(r: number) {
-    const wasUnrated = s.rating === null;
     onRate(s.id, r);
-    if (wasUnrated && cardRef.current) burstCelebration(cardRef.current);
+    if (r === 5 && cardRef.current) burstCelebration(cardRef.current);
   }
 
   return (
@@ -92,10 +98,10 @@ function FeedCard({ s, onRate }: { s: SelfSuggestion; onRate: (id: string, r: nu
             דורג
           </span>
         )}
-        <div className="typing-container">
+        <div className="typing-container" key={`title-${playKey}`}>
           <h2 className="mg-feed-title typing-text">{s.title}</h2>
         </div>
-        {s.description && <p className="mg-feed-desc typing-desc">{s.description}</p>}
+        {s.description && <p className="mg-feed-desc typing-desc" key={`desc-${playKey}`}>{s.description}</p>}
         {s.category && <span className="mg-feed-category">{s.category}</span>}
 
         <div className="mg-feed-rating-area">
@@ -212,16 +218,19 @@ export default function MyGiftsPage() {
       ) : (
         <div className="mg-feed-wrap">
           <div className="mg-feed hide-scrollbar" ref={feedRef}>
-            {dotCount > 1 && (
-              <div className="mg-feed-dots">
-                {Array.from({ length: dotCount }).map((_, i) => (
-                  <div key={i} className={`mg-feed-dot${i === activeIndex ? ' active' : ''}`} />
-                ))}
-              </div>
-            )}
-            {suggestions.map(s => <FeedCard key={s.id} s={s} onRate={handleRate} />)}
+            {suggestions.map((s, i) => <FeedCard key={s.id} s={s} isActive={i === activeIndex} onRate={handleRate} />)}
             <EndOfFeed onRefresh={handleRefresh} refreshing={refreshing} />
           </div>
+
+          {/* Rendered as a sibling of the scrolling feed (not inside it) so it
+              stays put on screen instead of scrolling away with the cards. */}
+          {dotCount > 1 && (
+            <div className="mg-feed-dots">
+              {Array.from({ length: dotCount }).map((_, i) => (
+                <div key={i} className={`mg-feed-dot${i === activeIndex ? ' active' : ''}`} />
+              ))}
+            </div>
+          )}
 
           {/* Desktop-only up/down navigation — mobile keeps plain touch/scroll swiping */}
           {dotCount > 1 && (
