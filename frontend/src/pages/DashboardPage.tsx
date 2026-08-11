@@ -271,32 +271,39 @@ export default function DashboardPage() {
                 const nextEvent = nextEventByContact[c.id];
                 const eventTier = !nextEvent ? 'empty' : nextEvent.daysUntil <= 6 ? 'soon' : nextEvent.daysUntil <= 45 ? 'gold' : '';
                 return (
-                  <div key={c.id} className="contact-row" onClick={() => navigate(`/contact/${c.id}`)}>
-                    <div className="contact-row-hover-edge" />
-                    <div className="contact-row-main">
-                      <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
-                      <div className="contact-row-info">
-                        <h3>{name}</h3>
-                        <div className="contact-row-chips">
-                          {c.relationship && <span className="contact-row-chip">{c.relationship}</span>}
-                          {c.user_profile && (
-                            <span className="contact-row-linked">
-                              <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{PRIVACY_ICON[(c.user_profile as any).privacy_level] ?? 'link'}</span>
-                              @{(c.user_profile as any).nickname}
-                            </span>
-                          )}
-                        </div>
+                  <div key={c.id} className="contact-row">
+                    {eventTier === 'soon' && nextEvent && (
+                      <div className="contact-row-badge">
+                        <span className="material-symbols-outlined">card_giftcard</span>
+                        {nextEvent.type}
                       </div>
-                    </div>
-                    <div className={`contact-row-event${eventTier ? ` ${eventTier}` : ''}`}>
-                      {nextEvent ? (
-                        <>
-                          <span className="material-symbols-outlined icon-fill">{EVENT_TYPE_ICONS[nextEvent.type] ?? 'event'}</span>
-                          <span>{formatCountdown(nextEvent.daysUntil)}</span>
-                        </>
-                      ) : (
-                        <span>אין אירועים קרובים</span>
-                      )}
+                    )}
+                    <div className="contact-row-card" onClick={() => navigate(`/contact/${c.id}`)}>
+                      <div className={`contact-row-days${eventTier ? ` ${eventTier}` : ''}`}>
+                        {nextEvent ? (
+                          <>
+                            <span className="material-symbols-outlined icon-fill">{EVENT_TYPE_ICONS[nextEvent.type] ?? 'event'}</span>
+                            <span>{formatCountdown(nextEvent.daysUntil)}</span>
+                          </>
+                        ) : (
+                          <span>אין אירועים קרובים</span>
+                        )}
+                      </div>
+                      <div className="contact-row-main">
+                        <div className="contact-row-info">
+                          <h3>{name}</h3>
+                          <div className="contact-row-chips">
+                            {c.relationship && <span className="contact-row-chip">{c.relationship}</span>}
+                            {c.user_profile && (
+                              <span className="contact-row-linked">
+                                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{PRIVACY_ICON[(c.user_profile as any).privacy_level] ?? 'link'}</span>
+                                @{(c.user_profile as any).nickname}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
+                      </div>
                     </div>
                   </div>
                 );

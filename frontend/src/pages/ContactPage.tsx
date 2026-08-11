@@ -35,6 +35,12 @@ function eventIcon(type: string) {
   return EVENT_ICONS[type] ?? 'event';
 }
 
+function urgentBadgeText(days: number): string {
+  if (days === 0) return 'היום!';
+  if (days === 1) return 'מחר!';
+  return `בעוד ${days} ימים!`;
+}
+
 export default function ContactPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -180,13 +186,16 @@ export default function ContactPage() {
     <AppShellLayout>
           {/* Page header */}
           <div className="contact-page-header">
-            <button className="back-btn" onClick={() => navigate('/')}>
+            <button className="icon-btn" onClick={() => navigate('/')} title="אנשי קשר">
               <span className="material-symbols-outlined">chevron_right</span>
-              אנשי קשר
             </button>
-            {contact.relationship && (
-              <span className="profile-rel-chip">{contact.relationship}</span>
-            )}
+            <button
+              className="icon-btn"
+              onClick={() => setEditingContact(s => !s)}
+              title="עריכת פרטים"
+            >
+              <span className="material-symbols-outlined">edit</span>
+            </button>
           </div>
 
           {/* Bento grid */}
@@ -196,6 +205,7 @@ export default function ContactPage() {
               <div className="profile-card-head">
                 <div className="profile-avatar-wrap">
                   <Avatar name={displayName} gender={gender} birthDate={displayBirthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={88} className="profile-avatar-lg" />
+                  {contact.relationship && <span className="profile-rel-chip">{contact.relationship}</span>}
                   {!linkedProfile && (
                     <button
                       type="button"
@@ -221,79 +231,69 @@ export default function ContactPage() {
                   </div>
                 )}
                 <h1 className="profile-display-name">{displayName}</h1>
-                {contact.relationship && <span className="profile-rel-chip">{contact.relationship}</span>}
               </div>
 
               {!editingContact ? (
                 <>
                   {linkedProfile && (
                     <div className="profile-linked-badge">
-                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>link</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>link</span>
                       פרופיל מקושר: @{(linkedProfile as any).nickname}
                     </div>
                   )}
-                  <div className="profile-meta">
+                  <div className="meta-pills">
                     {gender && (
-                      <div className="profile-meta-row">
-                        <span className="profile-meta-label">מגדר</span>
-                        <span className="profile-meta-value">{gender === 'male' ? 'גבר' : gender === 'female' ? 'אישה' : 'אחר'}</span>
-                      </div>
+                      <span className="meta-pill">
+                        <span className="material-symbols-outlined">wc</span>
+                        {gender === 'male' ? 'גבר' : gender === 'female' ? 'אישה' : 'אחר'}
+                      </span>
                     )}
                     {age !== null && (
-                      <div className="profile-meta-row">
-                        <span className="profile-meta-label">גיל</span>
-                        <span className="profile-meta-value">{age}</span>
-                      </div>
+                      <span className="meta-pill">
+                        <span className="material-symbols-outlined">cake</span>
+                        גיל {age}
+                      </span>
                     )}
                     {location && (
-                      <div className="profile-meta-row">
-                        <span className="profile-meta-label">מיקום</span>
-                        <span className="profile-meta-value">{location}</span>
-                      </div>
+                      <span className="meta-pill">
+                        <span className="material-symbols-outlined">location_on</span>
+                        {location}
+                      </span>
                     )}
                     {contact.relationship_status && (
-                      <div className="profile-meta-row">
-                        <span className="profile-meta-label">מצב משפחתי</span>
-                        <span className="profile-meta-value">{RELATIONSHIP_STATUS_HE[contact.relationship_status] ?? contact.relationship_status}</span>
-                      </div>
+                      <span className="meta-pill">
+                        <span className="material-symbols-outlined">favorite</span>
+                        {RELATIONSHIP_STATUS_HE[contact.relationship_status] ?? contact.relationship_status}
+                      </span>
                     )}
                     {contact.has_children !== null && contact.has_children !== undefined && (
-                      <div className="profile-meta-row">
-                        <span className="profile-meta-label">ילדים</span>
-                        <span className="profile-meta-value">{contact.has_children ? 'כן' : 'לא'}</span>
-                      </div>
+                      <span className="meta-pill">
+                        <span className="material-symbols-outlined">family_restroom</span>
+                        {contact.has_children ? 'עם ילדים' : 'בלי ילדים'}
+                      </span>
                     )}
                     {contact.religion && (
-                      <div className="profile-meta-row">
-                        <span className="profile-meta-label">דת</span>
-                        <span className="profile-meta-value">{RELIGION_HE[contact.religion] ?? contact.religion}</span>
-                      </div>
-                    )}
-                    {displayInterests?.length > 0 && (
-                      <div style={{ marginTop: 12 }}>
-                        <p className="profile-meta-label" style={{ marginBottom: 6 }}>תחומי עניין</p>
-                        <div className="tags">
-                          {displayInterests.map(i => <span key={i} className="tag">{i}</span>)}
-                        </div>
-                      </div>
-                    )}
-                    {displayBio && (
-                      <p style={{ fontSize: 13, color: 'var(--on-surface-variant)', marginTop: 10, lineHeight: 1.5 }}>{displayBio}</p>
-                    )}
-                    {contact.notes && (
-                      <div className="notes-box">
-                        <strong>הערות: </strong>{contact.notes}
-                      </div>
+                      <span className="meta-pill">
+                        <span className="material-symbols-outlined">auto_stories</span>
+                        {RELIGION_HE[contact.religion] ?? contact.religion}
+                      </span>
                     )}
                   </div>
-                  <button
-                    className="btn-surface"
-                    style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
-                    onClick={() => setEditingContact(true)}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                    עריכת פרטים
-                  </button>
+
+                  {displayBio && <p className="bio-text">{displayBio}</p>}
+
+                  {displayInterests?.length > 0 && (
+                    <div className="tags">
+                      {displayInterests.map(i => <span key={i} className="tag">{i}</span>)}
+                    </div>
+                  )}
+
+                  {contact.notes && (
+                    <div className="notes-box">
+                      <span className="material-symbols-outlined">sticky_note_2</span>
+                      <span><strong>הערה: </strong>{contact.notes}</span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <form className="fields-stack" onSubmit={saveContact} style={{ marginTop: 12 }}>
@@ -341,54 +341,62 @@ export default function ContactPage() {
                   </div>
                 )}
 
-                {events.map(ev => {
-                  const occurrence = nextEventOccurrence(ev);
-                  const days = occurrence ? daysUntil(occurrence) : null;
-                  const soon = days !== null && days <= 6;
+                {editingEventId && (() => {
+                  const ev = events.find(e => e.id === editingEventId);
+                  if (!ev) return null;
                   return (
-                    <div key={ev.id}>
-                      {editingEventId === ev.id ? (
-                        <div className="event-form-card">
-                          <EventForm
-                            initial={{ type: ev.type, date: ev.date, reminder_days: ev.reminder_days, budget_min: ev.budget_min, budget_max: ev.budget_max }}
-                            birthDate={displayBirthDate}
-                            onSubmit={saveEditEvent}
-                            onCancel={() => setEditingEventId(null)}
-                          />
-                        </div>
-                      ) : (
-                        <div
-                          className={`event-countdown-card${selectedEvent === ev.id ? ' selected' : ''}${soon ? ' soon' : ''}`}
-                          onClick={() => setSelectedEvent(ev.id)}
-                        >
-                          <div className="event-countdown-info">
-                            <h4>
-                              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{eventIcon(ev.type)}</span>
-                              {ev.type}
-                            </h4>
-                            <p>{occurrence ? occurrence.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' }) : '—'}</p>
-                            {ev.budget_min || ev.budget_max ? (
-                              <p className="event-countdown-budget">תקציב: {ev.budget_min ?? 0}–{ev.budget_max ?? '∞'} ₪</p>
-                            ) : null}
-                          </div>
-                          {days !== null && (
-                            <div className="event-countdown-days">
-                              <span className="num">{days}</span>
-                              <span className="unit">ימים</span>
-                            </div>
-                          )}
-                          <button
-                            className="event-countdown-edit"
-                            onClick={e => { e.stopPropagation(); setEditingEventId(ev.id); }}
-                            title="עריכה"
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
-                          </button>
-                        </div>
-                      )}
+                    <div className="event-form-card">
+                      <EventForm
+                        initial={{ type: ev.type, date: ev.date, reminder_days: ev.reminder_days, budget_min: ev.budget_min, budget_max: ev.budget_max }}
+                        birthDate={displayBirthDate}
+                        onSubmit={saveEditEvent}
+                        onCancel={() => setEditingEventId(null)}
+                      />
                     </div>
                   );
-                })}
+                })()}
+
+                {events.length > 0 && (
+                  <div className="events-scroll">
+                    {events.filter(ev => ev.id !== editingEventId).map(ev => {
+                      const occurrence = nextEventOccurrence(ev);
+                      const days = occurrence ? daysUntil(occurrence) : null;
+                      const soon = days !== null && days <= 6;
+                      return (
+                        <div
+                          key={ev.id}
+                          className={`event-card ${soon ? 'urgent' : 'normal'}${selectedEvent === ev.id ? ' selected' : ''}`}
+                          onClick={() => setSelectedEvent(ev.id)}
+                        >
+                          <div className="event-type-badge">
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{eventIcon(ev.type)}</span>
+                            {soon && days !== null ? urgentBadgeText(days) : ev.type}
+                          </div>
+                          <div className="event-title">{ev.type}</div>
+                          <div className="event-date">{occurrence ? occurrence.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' }) : '—'}</div>
+                          {(ev.budget_min || ev.budget_max) && (
+                            <div className="event-budget">תקציב: {ev.budget_min ?? 0}–{ev.budget_max ?? '∞'} ₪</div>
+                          )}
+                          <div className="event-footer">
+                            {days !== null ? (
+                              <div>
+                                <div className="event-days-count">{days}</div>
+                                <div className="event-days-unit">ימים נותרו</div>
+                              </div>
+                            ) : <span />}
+                            <button
+                              className="event-card-edit"
+                              onClick={e => { e.stopPropagation(); setEditingEventId(ev.id); }}
+                              title="עריכה"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {events.length === 0 && !showEventForm && (
                   <div className="empty-state" style={{ padding: '24px 0' }}>
@@ -399,7 +407,7 @@ export default function ContactPage() {
               </section>
 
               {/* AI Recommendations */}
-              <section className="card" style={{ background: 'rgba(88,81,219,0.03)', borderColor: 'rgba(88,81,219,0.15)' }}>
+              <section className="ai-banner">
                 <div className="ai-section-header">
                   <div className="ai-badge">
                     <span className="material-symbols-outlined icon-fill" style={{ fontSize: 22 }}>auto_awesome</span>
@@ -419,7 +427,7 @@ export default function ContactPage() {
                         </button>
                       </div>
                     ) : (
-                      <p style={{ fontSize: 13, color: 'var(--on-surface-variant)' }}>
+                      <p>
                         {recommendations.length > 0
                           ? 'לחץ על אירוע כדי לסנן לפי תקציב'
                           : 'בחר אירוע וייצר המלצות'}
