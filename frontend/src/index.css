@@ -154,7 +154,7 @@ a { text-decoration: none; color: inherit; }
      it reads as an instant swap instead of a pop. The back-out curve
      overshoots past 1 slightly before settling, so the growth itself is
      unmistakable rather than a barely-there 10% nudge. */
-  transition: opacity 0.12s ease-out, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity 0.2s ease-out, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .login-tab.active { color: var(--on-primary); }
 .login-tab.active::before { opacity: 1; transform: scaleX(1); }
@@ -819,12 +819,17 @@ a { text-decoration: none; color: inherit; }
 
 .contact-bento {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  /* minmax(0, 1fr) not bare 1fr — a bare fr track won't shrink below its
+     content's min-content size, and the recommendation carousel's cards
+     (flex: 0 0 250px each, non-wrapping) have a combined min-content width
+     far wider than the viewport. That was blowing out the whole page
+     horizontally on mobile despite .tag-track's own overflow-x: auto. */
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
 @media (max-width: 900px) {
-  .contact-bento { grid-template-columns: 1fr; }
+  .contact-bento { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Profile card */
