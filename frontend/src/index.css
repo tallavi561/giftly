@@ -65,6 +65,11 @@
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
+/* Chrome/Android's default tap-highlight is a translucent blue overlay on
+   any tapped clickable element — shows up on our onClick divs (nav items,
+   contact rows, etc.) since none of them are native <button>/<a>. We use our
+   own active/hover states everywhere, so disable the browser's default. */
+* { -webkit-tap-highlight-color: transparent; }
 body {
   font-family: var(--font);
   background-image: radial-gradient(rgba(88,81,219,0.5) 0.5px, transparent 0.5px);
