@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError } from './lib/api.js';
@@ -10,6 +10,7 @@ import ApproveRequestPage from './pages/ApproveRequestPage.js';
 import ProfilePage from './pages/ProfilePage.js';
 import MyGiftsPage from './pages/MyGiftsPage.js';
 import CalendarPage from './pages/CalendarPage.js';
+import AppShellLayout from './components/AppShellLayout.js';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -44,18 +45,32 @@ function SetupGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// Mounted once for every route that lives inside the app shell, so the shell
+// (bottom nav, top bar, avatar fetch) persists across navigation instead of
+// remounting fresh per page — that's what lets the bottom-nav active-tab
+// animation actually transition, and avoids refetching the avatar on every click.
+function Shell() {
+  return (
+    <AppShellLayout>
+      <Outlet />
+    </AppShellLayout>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<ProtectedRoute><SetupPage /></ProtectedRoute>} />
-        <Route path="/" element={<SetupGuard><DashboardPage /></SetupGuard>} />
-        <Route path="/contact/:id" element={<SetupGuard><ContactPage /></SetupGuard>} />
         <Route path="/approve-request" element={<ApproveRequestPage />} />
-        <Route path="/profile" element={<SetupGuard><ProfilePage /></SetupGuard>} />
-        <Route path="/my-gifts" element={<SetupGuard><MyGiftsPage /></SetupGuard>} />
-        <Route path="/calendar" element={<SetupGuard><CalendarPage /></SetupGuard>} />
+        <Route element={<Shell />}>
+          <Route path="/" element={<SetupGuard><DashboardPage /></SetupGuard>} />
+          <Route path="/contact/:id" element={<SetupGuard><ContactPage /></SetupGuard>} />
+          <Route path="/profile" element={<SetupGuard><ProfilePage /></SetupGuard>} />
+          <Route path="/my-gifts" element={<SetupGuard><MyGiftsPage /></SetupGuard>} />
+          <Route path="/calendar" element={<SetupGuard><CalendarPage /></SetupGuard>} />
+        </Route>
       </Routes>
     </AuthProvider>
   );

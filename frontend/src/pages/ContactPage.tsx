@@ -8,7 +8,6 @@ import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
 import { calcAge, formatLocation, nextEventOccurrence, daysUntil } from '../lib/utils.js';
-import AppShellLayout from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
 import Avatar from '../components/Avatar.js';
 import AvatarPicker from '../components/AvatarPicker.js';
@@ -177,7 +176,7 @@ export default function ContactPage() {
     : recommendations;
 
   return (
-    <AppShellLayout>
+    <>
           {/* Page header */}
           <div className="contact-page-header">
             <button className="back-btn" onClick={() => navigate('/')}>
@@ -456,6 +455,6 @@ export default function ContactPage() {
               </section>
             </div>
           </div>
-    </AppShellLayout>
+    </>
   );
 }

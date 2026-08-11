@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import Avatar from './Avatar.js';
 
@@ -12,18 +12,38 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/my-gifts',  icon: 'auto_awesome',  label: 'הצעות בשבילי' },
 ];
 
-interface Props {
-  children: ReactNode;
+interface ShellConfig {
   headerExtra?: ReactNode;
   /** Removes the main-content padding so a page can render edge-to-edge (e.g. a full-screen feed). */
   fullBleed?: boolean;
 }
 
-export default function AppShellLayout({ children, headerExtra, fullBleed }: Props) {
+// AppShellLayout is mounted once by the Shell layout route (see App.tsx) so the
+// bottom nav persists — and its active-tab animation can actually transition —
+// across page navigation instead of remounting fresh on every route change.
+// Individual pages reach up into it via this context to set per-page config.
+const ShellConfigContext = createContext<((config: ShellConfig) => void) | null>(null);
+
+export function useShellConfig(config: ShellConfig) {
+  const setConfig = useContext(ShellConfigContext);
+  const { fullBleed, headerExtra } = config;
+  useEffect(() => {
+    setConfig?.({ fullBleed, headerExtra });
+    return () => setConfig?.({});
+  }, [setConfig, fullBleed, headerExtra]);
+}
+
+interface Props {
+  children: ReactNode;
+}
+
+export default function AppShellLayout({ children }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
   const [me, setMe] = useState<{ display_name: string; gender: string | null; birth_date: string | null; avatar_mode: 'illustrated' | 'silhouette' | 'photo'; avatar_url: string | null } | null>(null);
+  const [config, setConfig] = useState<ShellConfig>({});
+  const { headerExtra, fullBleed } = config;
 
   useEffect(() => {
     api.userProfile.me().then(p => setMe({ display_name: p.display_name, gender: p.gender, birth_date: p.birth_date, avatar_mode: p.avatar_mode, avatar_url: p.avatar_url })).catch(() => {});
@@ -84,7 +104,9 @@ export default function AppShellLayout({ children, headerExtra, fullBleed }: Pro
 
         {/* Page content */}
         <main className={`main-content${fullBleed ? ' full-bleed' : ''}`}>
-          {children}
+          <ShellConfigContext.Provider value={setConfig}>
+            {children}
+          </ShellConfigContext.Provider>
         </main>
       </div>
 

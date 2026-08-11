@@ -7,7 +7,7 @@ import type { Contact, ContactRequest, Event, Recommendation, UserProfile } from
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
-import AppShellLayout from '../components/AppShellLayout.js';
+import { useShellConfig } from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
 import Avatar from '../components/Avatar.js';
 import { nextEventOccurrence, daysUntil } from '../lib/utils.js';
@@ -194,9 +194,10 @@ export default function DashboardPage() {
       <span className="material-symbols-outlined">history</span>
     </button>
   );
+  useShellConfig({ headerExtra: historyBtn });
 
   return (
-    <AppShellLayout headerExtra={historyBtn}>
+    <>
           {/* Requests */}
           {incomingRequests.length > 0 && (
             <div className="requests-section">
@@ -456,6 +457,6 @@ export default function DashboardPage() {
         </>
       )}
 
-    </AppShellLayout>
+    </>
   );
 }

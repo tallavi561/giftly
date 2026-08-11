@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import AppShellLayout from '../components/AppShellLayout.js';
 import { hebrewToGregorianInYear, formatHebrewDate } from '../lib/hebrewDate.js';
 
 interface CalendarEvent {
@@ -156,7 +155,7 @@ export default function CalendarPage() {
     day === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
 
   return (
-    <AppShellLayout>
+    <>
       <div className="cal-main">
         {/* Header */}
         <div className="cal-header">
@@ -300,6 +299,6 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
-    </AppShellLayout>
+    </>
   );
 }
