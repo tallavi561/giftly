@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
-import AppShellLayout from '../components/AppShellLayout.js';
+import { useShellConfig } from '../components/AppShellLayout.js';
 import { gradientForCategory } from '../lib/utils.js';
 
 const logger = new Logger('MyGiftsPage');
@@ -206,8 +206,10 @@ export default function MyGiftsPage() {
 
   const dotCount = suggestions.length + 1; // + the end-of-feed card
 
+  useShellConfig({ fullBleed: true });
+
   return (
-    <AppShellLayout fullBleed>
+    <>
       {loading ? (
         <div className="ai-loader" style={{ paddingTop: 80 }}>
           <div className="ai-loader-dots"><span /><span /><span /></div>
@@ -257,6 +259,6 @@ export default function MyGiftsPage() {
           )}
         </div>
       )}
-    </AppShellLayout>
+    </>
   );
 }

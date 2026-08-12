@@ -7,9 +7,9 @@
    as the previous "Thoughtful Celebration" system so the rest of the
    stylesheet re-themes automatically. */
 :root {
-  --bg: #f8f6fc;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-low: #f6f4fb;
+  --surface-low: #fbfaff;
   --surface-container: #eeecf9;
   --surface-high: #e4e1f5;
   --surface-highest: #d8d4ef;
@@ -1314,17 +1314,23 @@ a { text-decoration: none; color: inherit; }
 }
 @media (max-width: 768px) { .mobile-nav { display: flex; } }
 .mobile-nav-item {
+  position: relative; z-index: 0;
   display: flex; flex-direction: column; align-items: center;
   gap: 4px; padding: 6px 14px;
   font-size: 11px; font-weight: 600;
   color: var(--on-surface-variant);
-  border-radius: var(--r-full); transition: background 0.2s, color 0.2s, transform 0.2s;
+  border-radius: var(--r-full); transition: color 0.2s;
   cursor: pointer;
 }
-.mobile-nav-item.active {
-  background: var(--primary-container); color: var(--on-primary-container);
-  transform: scale(1.08);
+.mobile-nav-item::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  border-radius: var(--r-full);
+  background: var(--primary-container);
+  opacity: 0; transform: scaleX(0.8);
+  transition: opacity 0.2s ease-out, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+.mobile-nav-item.active { color: var(--on-primary-container); }
+.mobile-nav-item.active::before { opacity: 1; transform: scaleX(1); }
 
 /* ══════════════════════════════════════════
    MISC
@@ -1493,6 +1499,7 @@ select:focus {
   height: calc(100dvh - 140px);
   width: 100%;
   scroll-snap-align: start;
+  scroll-snap-stop: always; /* stop at every card even on a fast fling — mandatory alone lets a hard scroll skip past one */
   overflow: hidden;
 }
 @media (min-width: 769px) { .mg-feed-item { height: min(720px, calc(100vh - 160px)); } }

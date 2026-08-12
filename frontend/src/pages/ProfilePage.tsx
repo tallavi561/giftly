@@ -4,7 +4,6 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
-import AppShellLayout from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import AvatarPicker, { type AvatarMode } from '../components/AvatarPicker.js';
@@ -73,7 +72,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <AppShellLayout>
+    <>
       <div className="profile-page-body">
         <div className="profile-page-wrap">
           <div className="profile-page-heading">
@@ -171,6 +170,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </AppShellLayout>
+    </>
   );
 }
