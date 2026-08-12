@@ -7,7 +7,15 @@
    as the previous "Thoughtful Celebration" system so the rest of the
    stylesheet re-themes automatically. */
 :root {
-  --bg: #ffffff;
+  /* This is GEMINI's exact page background (UX-UI/GEMINI/אנשי קשר - כללי.html
+     .app-container), not a generic off-white guess: #f6f5fb reads as
+     essentially white at a glance, but that hair of contrast against
+     --surface-white cards below is what lets a card's border/shadow
+     actually register instead of the card visually fusing with the page.
+     A literal #ffffff page (tried per an earlier request) made every card
+     blend into the background since cards are white too — the flat,
+     undefined look that prompted this investigation. */
+  --bg: #f6f5fb;
   --surface: #ffffff;
   --surface-low: #fbfaff;
   --surface-container: #eeecf9;
@@ -15,6 +23,10 @@
   --surface-highest: #d8d4ef;
   --surface-white: #ffffff;
   --surface-dim: #e2dff2;
+  /* Dedicated, lighter border for cards sitting directly on --bg (GEMINI's
+     .contact-card border: #eeeaf7) — kept separate from --surface-highest,
+     which many unrelated dividers/borders elsewhere already depend on. */
+  --border-card: #eeeaf7;
 
   --on-surface: #1e1b4b;
   --on-surface-variant: #64748b;
@@ -474,7 +486,7 @@ a { text-decoration: none; color: inherit; }
 .card {
   background: var(--surface-white);
   border-radius: var(--r-lg);
-  border: 1px solid rgba(43,33,41,0.08);
+  border: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
   padding: 24px;
   transition: box-shadow 0.2s;
@@ -508,7 +520,7 @@ a { text-decoration: none; color: inherit; }
 
 .contact-row-card {
   background: var(--surface-white);
-  border: 1px solid var(--surface-highest);
+  border: 1px solid var(--border-card);
   border-radius: var(--r-lg);
   padding: 18px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
