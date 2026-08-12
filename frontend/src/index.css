@@ -544,18 +544,7 @@ a { text-decoration: none; color: inherit; }
 .contact-row-days.empty { background: transparent; opacity: 0.55; font-weight: 500; color: var(--on-surface-variant); }
 
 .contact-row-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.contact-row-info { text-align: right; }
-.contact-row-info h3 { font-size: 16px; font-weight: 700; color: var(--on-surface); }
-.contact-row-chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; }
-.contact-row-chip {
-  font-size: 11px; font-weight: 600; color: var(--on-secondary-container);
-  background: var(--secondary-container);
-  padding: 2px 8px; border-radius: var(--r-sm);
-}
-.contact-row-linked {
-  font-size: 12px; color: var(--on-surface-variant);
-  display: inline-flex; align-items: center; gap: 3px;
-}
+.contact-row-name { font-size: 16px; font-weight: 700; color: var(--on-surface); }
 
 /* ── Tags ── */
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }

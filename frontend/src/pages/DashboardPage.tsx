@@ -279,6 +279,10 @@ export default function DashboardPage() {
                       </div>
                     )}
                     <div className="contact-row-card" onClick={() => navigate(`/contact/${c.id}`)}>
+                      <div className="contact-row-main">
+                        <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
+                        <h3 className="contact-row-name">{name}</h3>
+                      </div>
                       <div className={`contact-row-days${eventTier ? ` ${eventTier}` : ''}`}>
                         {nextEvent ? (
                           <>
@@ -288,21 +292,6 @@ export default function DashboardPage() {
                         ) : (
                           <span>אין אירועים קרובים</span>
                         )}
-                      </div>
-                      <div className="contact-row-main">
-                        <div className="contact-row-info">
-                          <h3>{name}</h3>
-                          <div className="contact-row-chips">
-                            {c.relationship && <span className="contact-row-chip">{c.relationship}</span>}
-                            {c.user_profile && (
-                              <span className="contact-row-linked">
-                                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{PRIVACY_ICON[(c.user_profile as any).privacy_level] ?? 'link'}</span>
-                                @{(c.user_profile as any).nickname}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
                       </div>
                     </div>
                   </div>
