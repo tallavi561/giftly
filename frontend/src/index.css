@@ -75,9 +75,10 @@
 html { font-size: 16px; }
 body {
   font-family: var(--font);
-  background-image: radial-gradient(rgba(79,70,229,0.5) 0.5px, transparent 0.5px);
-  background-size: 24px 24px;
-  background-color: var(--surface-low);
+  /* Flat pale-lavender background per UX-UI/GEMINI (no dot pattern —
+     that was a holdover from the previous "Thoughtful Celebration"
+     system and isn't part of either GEMINI mockup). */
+  background-color: var(--bg);
   color: var(--on-surface);
   direction: rtl;
   min-height: 100vh;
@@ -220,9 +221,7 @@ a { text-decoration: none; color: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 24px;
   position: relative; overflow: hidden;
-  background-image: radial-gradient(rgba(79,70,229,0.5) 0.5px, transparent 0.5px);
-  background-size: 24px 24px;
-  background-color: var(--surface-low);
+  background-color: var(--bg);
 }
 .approve-root::before {
   content: ''; position: fixed; top: -10%; right: -8%;
