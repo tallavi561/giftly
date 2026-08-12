@@ -824,12 +824,17 @@ a { text-decoration: none; color: inherit; }
 
 .contact-bento {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  /* minmax(0, 1fr) not bare 1fr — a bare fr track won't shrink below its
+     content's min-content size, and the recommendation carousel's cards
+     (flex: 0 0 250px each, non-wrapping) have a combined min-content width
+     far wider than the viewport. That blows out the whole page horizontally
+     on mobile despite .tag-track's own overflow-x: auto. */
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
 @media (max-width: 900px) {
-  .contact-bento { grid-template-columns: 1fr; }
+  .contact-bento { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Profile card — hero, per UX-UI/GEMINI/איש קשר.html */
