@@ -12,5 +12,4 @@ UX-UI/
 
 # קבצים רגישים
 dbpassword.txt
-*.docx
 .claude/

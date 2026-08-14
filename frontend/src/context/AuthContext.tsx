@@ -38,7 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const signUp = (email: string, password: string) => {
     logger.info('Sign up', { email });
-    return supabase.auth.signUp({ email, password });
+    return supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
   };
   const signOut = () => {
     logger.info('Sign out');
@@ -46,7 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const resetPassword = (email: string) => {
     logger.info('Reset password requested', { email });
-    return supabase.auth.resetPasswordForEmail(email);
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
   };
 
   return (
