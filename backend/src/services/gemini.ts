@@ -1,7 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Logger } from '../lib/logger.js';
 import { supabase } from '../lib/supabase.js';
-import type { Profile, Event, GiftHistory, GeminiRecommendation } from '../types/index.js';
+import { MASTER_TAG_LIST } from '../types/index.js';
+import type { Profile, Event, GiftHistory, GeminiRecommendation, CatalogTag } from '../types/index.js';
+
+const VALID_CATEGORY_TAGS = new Set<string>([...MASTER_TAG_LIST, 'general']);
+function normalizeCategoryTag(value: unknown): CatalogTag | null {
+  return typeof value === 'string' && VALID_CATEGORY_TAGS.has(value) ? (value as CatalogTag) : null;
+}
 
 const logger = new Logger('gemini');
 const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -31,6 +37,8 @@ export interface SelfProfile {
   gender: string | null;
   birth_date: string | null;
   interests: string[] | null;
+  negative_prefs?: string[] | null;
+  free_text?: string | null;
   bio: string | null;
   city: string | null;
   country: string | null;
@@ -43,13 +51,15 @@ async function checkGeminiQuota(): Promise<void> {
   if (!allowed) throw new Error('GEMINI_QUOTA_EXCEEDED');
 }
 
-export async function generateSelfGiftSuggestions(profile: SelfProfile): Promise<GeminiRecommendation[]> {
+export async function generateSelfGiftSuggestions(profile: SelfProfile, count = 5): Promise<GeminiRecommendation[]> {
   await checkGeminiQuota();
-  logger.info('Generating self suggestions', { name: profile.display_name });
+  logger.info('Generating self suggestions', { name: profile.display_name, count });
 
   const age = profile.birth_date
     ? Math.floor((Date.now() - new Date(profile.birth_date).getTime()) / (365.25 * 24 * 3600 * 1000))
     : null;
+
+  const negatives = (profile.negative_prefs ?? []).slice(-4); // token budget — spec §4.1
 
   const prompt = `
 אתה מומחה בבחירת מתנות. עזור לאדם הבא לגלות מתנות שהוא עצמו ירצה לקבל או לפנק את עצמו בהן.
@@ -60,7 +70,12 @@ export async function generateSelfGiftSuggestions(profile: SelfProfile): Promise
 ${age ? `- גיל: ${age}` : ''}
 - תחומי עניין: ${(profile.interests ?? []).join(', ') || 'לא ידוע'}
 - תיאור: ${profile.bio ?? ''}
+${profile.free_text ? `- ניואנסים: ${profile.free_text}` : ''}
 ${profile.city ? `- מיקום: ${profile.city}, ${profile.country ?? ''}` : ''}
+${negatives.length ? `- הימנע לחלוטין מהכיוונים הבאים: ${negatives.join(', ')}` : ''}
+
+רשימת התגיות המותרת עבור category_tag (בחר בדיוק אחת, או null אם שום תגית לא מתאימה):
+${MASTER_TAG_LIST.join(', ')}, general
 
 החזר JSON בלבד (ללא markdown), עם המבנה הבא:
 {
@@ -70,12 +85,13 @@ ${profile.city ? `- מיקום: ${profile.city}, ${profile.country ?? ''}` : ''}
       "description": "למה זה מתאים לאדם הזה",
       "estimated_price": 150,
       "category": "קטגוריה",
+      "category_tag": "אחת מהתגיות המותרות למעלה, או null",
       "search_query": "מה לחפש בגוגל"
     }
   ]
 }
 
-החזר 5 המלצות ממוינות מהמתאימה ביותר לפחות.
+החזר ${count} המלצות ממוינות מהמתאימה ביותר לפחות.
 `;
 
   const result = await model.generateContent(prompt);
@@ -84,7 +100,7 @@ ${profile.city ? `- מיקום: ${profile.city}, ${profile.country ?? ''}` : ''}
   const end = text.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('No JSON object found in Gemini response');
   const parsed = JSON.parse(text.slice(start, end + 1)) as GeminiResponse;
-  return parsed.recommendations;
+  return parsed.recommendations.map(r => ({ ...r, category_tag: normalizeCategoryTag(r.category_tag) }));
 }
 
 export async function generateGiftRecommendations(params: GenerateParams): Promise<GeminiResponse> {
