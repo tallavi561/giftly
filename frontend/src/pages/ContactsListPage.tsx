@@ -233,18 +233,19 @@ export default function ContactsListPage() {
 
       {/* Header */}
       <div className="page-heading" style={{ marginBottom: 0 }}>
-        <h1 style={{ fontSize: 28 }}>אנשי הקשר שלי</h1>
+        <h1 style={{ fontSize: 26 }}>אנשי הקשר שלי</h1>
         <p>עיון, חיפוש והוספה של אנשי קשר</p>
       </div>
 
       {contacts.length > 0 && (
-        <div className="search-bar" style={{ marginTop: 16 }}>
+        <div className="contact-search-wrap">
           <input
-            className="field"
+            className="contact-search-input"
             placeholder="חפש איש קשר לפי שם..."
             value={nameFilter}
             onChange={e => setNameFilter(e.target.value)}
           />
+          <span className="material-symbols-outlined contact-search-icon">search</span>
         </div>
       )}
 

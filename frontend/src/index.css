@@ -412,20 +412,20 @@ a { text-decoration: none; color: inherit; }
 .section-actions h2 { font-size: 18px; font-weight: 600; color: var(--on-surface); }
 
 /* ── Buttons ── */
-/* Floating circular action button, per UX-UI/GEMINI's .fab — icon only,
-   fixed to the viewport corner instead of an inline text pill. */
+/* Floating action button — rounded SQUARE (not circle) that scales+rotates
+   on hover, per UX-UI/GEMINI/אנשי קשר 2.html's .fab exactly. */
 .btn-fab {
   position: fixed; bottom: 92px; left: 24px; z-index: 40;
   width: 56px; height: 56px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: var(--r-full);
+  border-radius: var(--r-lg);
   background: linear-gradient(135deg, var(--primary), var(--surface-tint));
   color: var(--on-primary);
   font-size: 24px;
   box-shadow: 0 10px 22px rgba(79,70,229,0.35);
-  transition: box-shadow 0.2s, transform 0.15s;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s;
 }
-.btn-fab:hover { box-shadow: 0 12px 26px rgba(79,70,229,0.42); transform: translateY(-1px); }
+.btn-fab:hover { box-shadow: 0 12px 26px rgba(79,70,229,0.42); transform: scale(1.08) rotate(90deg); }
 .btn-fab:active { transform: scale(0.96); }
 @media (min-width: 769px) { .btn-fab { bottom: 32px; } }
 
@@ -555,17 +555,17 @@ a { text-decoration: none; color: inherit; }
 .contact-list-item {
   background: var(--surface-white);
   border: 1px solid var(--border-card);
-  border-radius: var(--r-lg);
+  border-radius: 20px; /* exact value from the mockup, not var(--r-lg)=24 */
   padding: 16px 18px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-1);
   cursor: pointer;
   transition: box-shadow 0.2s, transform 0.15s;
 }
-.contact-list-item:hover { box-shadow: var(--shadow-celebratory); transform: translateY(-2px); }
+.contact-list-item:hover { box-shadow: var(--shadow-2); transform: translateY(-3px); }
 .contact-list-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .contact-list-avatar {
-  flex-shrink: 0; width: 48px; height: 48px; border-radius: var(--r-md);
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 16px; /* exact value from the mockup */
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; font-weight: 700;
 }
@@ -574,6 +574,29 @@ a { text-decoration: none; color: inherit; }
   flex-shrink: 0;
   background: var(--surface-container); color: var(--on-surface-variant);
   font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--r-full);
+}
+
+/* Search bar — white rounded pill with shadow + inline icon, replacing the
+   flat gray .field input for this specific search (mockup .search-input /
+   .search-icon). RTL: icon sits on the leading (right) edge, so the input's
+   padding-right (not left) makes room for it. */
+.contact-search-wrap { position: relative; margin-top: 16px; }
+.contact-search-input {
+  width: 100%;
+  padding: 14px 44px 14px 16px;
+  border-radius: 18px;
+  border: 1.5px solid transparent;
+  background: var(--surface-white);
+  font-size: 14px; color: var(--on-surface);
+  outline: none;
+  box-shadow: var(--shadow-1);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.contact-search-input::placeholder { color: var(--outline); }
+.contact-search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79,70,229,0.12); }
+.contact-search-icon {
+  position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  color: var(--outline); font-size: 18px; pointer-events: none;
 }
 .home-find-gift-btn {
   flex-shrink: 0; width: 36px; height: 36px; border-radius: var(--r-full);
