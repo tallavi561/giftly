@@ -317,28 +317,60 @@ export async function getDemographicCloseness(
 // ---- §4.9 — item-based collaborative filtering (read side; the batch job that
 // computes gift_neighbors lives in routes/cron.ts) ----
 
+export interface NeighborGift { gift: CatalogGift; similarity: number }
+
 export async function getCollaborativeNeighbors(
   db: SupabaseClient,
   likedGiftIds: string[],
   budgetMin?: number | null,
   budgetMax?: number | null,
   excludeIds: string[] = [],
-): Promise<CatalogGift[]> {
+): Promise<NeighborGift[]> {
   if (likedGiftIds.length === 0) return [];
   const { data: neighborRows, error } = await db
     .from('gift_neighbors').select('neighbor_gift_id, similarity').in('gift_id', likedGiftIds).order('similarity', { ascending: false });
   if (error) throw error;
 
   const excludeSet = new Set(excludeIds);
-  const neighborIds = [...new Set((neighborRows ?? []).map(r => r.neighbor_gift_id))].filter(id => !excludeSet.has(id));
-  if (neighborIds.length === 0) return [];
+  const bestSimilarity = new Map<string, number>();
+  for (const row of neighborRows ?? []) {
+    if (excludeSet.has(row.neighbor_gift_id)) continue;
+    const current = bestSimilarity.get(row.neighbor_gift_id) ?? 0;
+    if (row.similarity > current) bestSimilarity.set(row.neighbor_gift_id, row.similarity);
+  }
+  if (bestSimilarity.size === 0) return [];
 
-  let query = db.from('good_gifts_catalog').select('*').in('id', neighborIds);
+  let query = db.from('good_gifts_catalog').select('*').in('id', [...bestSimilarity.keys()]);
   if (budgetMin != null) query = query.gte('estimated_price', budgetMin);
   if (budgetMax != null) query = query.lte('estimated_price', budgetMax);
   const { data, error: ge } = await query;
   if (ge) throw ge;
-  return (data ?? []) as CatalogGift[];
+  return ((data ?? []) as CatalogGift[]).map(gift => ({ gift, similarity: bestSimilarity.get(gift.id)! }));
+}
+
+// ---- deterministic top-N by global smoothed rate (contact-flow §6.1 source #3;
+// self-flow uses a random sample instead, see selfRecommendationBatch.ts) ----
+
+export interface ScoredGiftRef { gift: CatalogGift; score: number }
+
+export async function getTopGlobalCandidates(
+  db: SupabaseClient,
+  n: number,
+  excludeIds: string[] = [],
+  budgetMin?: number | null,
+  budgetMax?: number | null,
+): Promise<ScoredGiftRef[]> {
+  let query = db.from('good_gifts_catalog').select('*').limit(200);
+  if (budgetMin != null) query = query.gte('estimated_price', budgetMin);
+  if (budgetMax != null) query = query.lte('estimated_price', budgetMax);
+  const { data, error } = await query;
+  if (error) throw error;
+  const excludeSet = new Set(excludeIds);
+  return ((data ?? []) as CatalogGift[])
+    .filter(g => !excludeSet.has(g.id))
+    .map(gift => ({ gift, score: smoothedRate(gift.global_liked, gift.global_shown, GLOBAL_MEAN, K_PRIOR_TAG) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
 }
 
 // ---- shared entry point (spec §1.3 / §2 "core") ----

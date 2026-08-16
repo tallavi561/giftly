@@ -5,7 +5,6 @@ import { Logger } from '../lib/logger.js';
 import { useShellConfig } from '../components/AppShellLayout.js';
 import { gradientForCategory } from '../lib/utils.js';
 import { nextEventOccurrence, daysUntil } from '../lib/utils.js';
-import { getLocalFit, setLocalFit, type LocalFit } from '../lib/localGiftRatings.js';
 import type { Contact, Event, Recommendation } from '../types/index.js';
 
 const logger = new Logger('FindGiftPage');
@@ -13,20 +12,15 @@ const logger = new Logger('FindGiftPage');
 // Dedicated full-screen swipe feed for finding a gift for one contact —
 // replaces the old "buried horizontal carousel below the profile" flow
 // (see Specs/Front/FRONTEND_SPEC2.md §9(4)). Sourced from the same
-// POST /api/recommendations the inline carousel on ContactPage uses; the
-// fit/not-fit buttons are local-only for now (see lib/localGiftRatings.ts).
+// POST /api/recommendations the old inline carousel used; "load more" and
+// fit/not-fit now call the real backend (Phase 2 — search-more + binary rate).
 
-function GiftCard({ rec, isActive }: { rec: Recommendation; isActive: boolean }) {
+function GiftCard({ rec, isActive, onRate }: { rec: Recommendation; isActive: boolean; onRate: (id: string, fit: 'FIT' | 'NOT_FIT') => void }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [playKey, setPlayKey] = useState(0);
-  const [fit, setFit] = useState<LocalFit | null>(() => getLocalFit(rec.id));
+  const fit = rec.rating === 5 ? 'FIT' : rec.rating === 2 ? 'NOT_FIT' : null;
 
   useEffect(() => { if (isActive) setPlayKey(k => k + 1); }, [isActive]);
-
-  function handleFit(value: LocalFit) {
-    setLocalFit(rec.id, value);
-    setFit(value);
-  }
 
   return (
     <section className="mg-feed-item" ref={cardRef}>
@@ -56,11 +50,11 @@ function GiftCard({ rec, isActive }: { rec: Recommendation; isActive: boolean })
 
         <div className="mg-feed-rating-area">
           <div className="find-gift-fit-actions">
-            <button type="button" className={`find-gift-fit-btn not-fit${fit === 'NOT_FIT' ? ' active' : ''}`} onClick={() => handleFit('NOT_FIT')}>
+            <button type="button" className={`find-gift-fit-btn not-fit${fit === 'NOT_FIT' ? ' active' : ''}`} onClick={() => onRate(rec.id, 'NOT_FIT')}>
               <span className="material-symbols-outlined">close</span>
               לא מתאים
             </button>
-            <button type="button" className={`find-gift-fit-btn fit${fit === 'FIT' ? ' active' : ''}`} onClick={() => handleFit('FIT')}>
+            <button type="button" className={`find-gift-fit-btn fit${fit === 'FIT' ? ' active' : ''}`} onClick={() => onRate(rec.id, 'FIT')}>
               <span className="material-symbols-outlined">favorite</span>
               מתאים!
             </button>
@@ -77,16 +71,18 @@ function GiftCard({ rec, isActive }: { rec: Recommendation; isActive: boolean })
   );
 }
 
-function EndOfFeed({ onMore, loading }: { onMore: () => void; loading: boolean }) {
+function EndOfFeed({ onMore, loading, done }: { onMore: () => void; loading: boolean; done: boolean }) {
   return (
     <section className="mg-feed-item mg-feed-end">
       <span className="material-symbols-outlined mg-feed-end-icon">check_circle</span>
       <h2>אלה כל ההצעות להיום</h2>
-      <p>אפשר לבקש עוד רעיונות, או לחזור מאוחר יותר.</p>
-      <button className="btn-filled" onClick={onMore} disabled={loading}>
-        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
-        {loading ? 'מחשב...' : 'עוד רעיונות'}
-      </button>
+      <p>{done ? 'אין עוד הצעות זמינות כרגע לאיש הקשר הזה — נסה שוב מאוחר יותר.' : 'אפשר לטעון עוד הצעות מהרשימה המדורגת.'}</p>
+      {!done && (
+        <button className="btn-filled" onClick={onMore} disabled={loading}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+          {loading ? 'טוען...' : 'עוד הצעות'}
+        </button>
+      )}
     </section>
   );
 }
@@ -100,7 +96,8 @@ export default function FindGiftPage() {
   const [noEvents, setNoEvents] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [sessionDone, setSessionDone] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -124,21 +121,6 @@ export default function FindGiftPage() {
     }).catch(err => logger.error('Load events failed', err));
   }, [id, eventId]);
 
-  async function generateMore() {
-    if (!id || !eventId) return;
-    setGenerating(true);
-    try {
-      const result: any = await api.recommendations.generate({ contact_id: id, event_id: eventId });
-      const recs: any[] = result.recommendations ?? result;
-      setRecommendations(r => [...r, ...recs]);
-    } catch (err) {
-      logger.error('Generate failed', err);
-      alert((err as Error).message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   useEffect(() => {
     if (!id || !eventId) return;
     setLoading(true);
@@ -146,15 +128,21 @@ export default function FindGiftPage() {
       if (existing.length > 0) {
         setRecommendations(existing);
         setLoading(false);
-      } else {
-        await generateMore();
+        return;
+      }
+      try {
+        const result: any = await api.recommendations.generate({ contact_id: id, event_id: eventId });
+        setRecommendations(result.recommendations ?? []);
+      } catch (err) {
+        logger.error('Generate failed', err);
+        alert((err as Error).message);
+      } finally {
         setLoading(false);
       }
     }).catch(err => {
       logger.error('Load recommendations failed', err);
       setLoading(false);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, eventId]);
 
   useEffect(() => {
@@ -171,6 +159,31 @@ export default function FindGiftPage() {
     items.forEach(el => observer.observe(el));
     return () => observer.disconnect();
   }, [recommendations, loading]);
+
+  async function handleLoadMore() {
+    if (!id) return;
+    const batchId = recommendations[0]?.batch_id;
+    if (!batchId) return;
+    setLoadingMore(true);
+    try {
+      const result = await api.recommendations.searchMore(id, batchId);
+      if (result.items.length > 0) setRecommendations(r => [...r, ...result.items]);
+      if (result.done) setSessionDone(true);
+    } catch (err) {
+      logger.error('Search-more failed', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function handleRate(recId: string, fit: 'FIT' | 'NOT_FIT') {
+    setRecommendations(prev => prev.map(r => r.id === recId ? { ...r, rating: fit === 'FIT' ? 5 : 2 } : r));
+    try {
+      await api.recommendations.rate(recId, fit);
+    } catch (err) {
+      logger.error('Rate failed', err);
+    }
+  }
 
   const contactName = useMemo(() => (contact?.user_profile as any)?.display_name ?? contact?.name ?? '', [contact]);
   const dotCount = recommendations.length + 1;
@@ -196,8 +209,8 @@ export default function FindGiftPage() {
       ) : (
         <div className="mg-feed-wrap">
           <div className="mg-feed hide-scrollbar" ref={feedRef}>
-            {recommendations.map((r, i) => <GiftCard key={r.id} rec={r} isActive={i === activeIndex} />)}
-            <EndOfFeed onMore={generateMore} loading={generating} />
+            {recommendations.map((r, i) => <GiftCard key={r.id} rec={r} isActive={i === activeIndex} onRate={handleRate} />)}
+            <EndOfFeed onMore={handleLoadMore} loading={loadingMore} done={sessionDone} />
           </div>
 
           {dotCount > 1 && (

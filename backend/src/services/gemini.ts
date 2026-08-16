@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Logger } from '../lib/logger.js';
 import { supabase } from '../lib/supabase.js';
 import { MASTER_TAG_LIST } from '../types/index.js';
-import type { Profile, Event, GiftHistory, GeminiRecommendation, CatalogTag } from '../types/index.js';
+import type { Profile, Event, GeminiRecommendation, CatalogTag, CatalogGift } from '../types/index.js';
 
 const VALID_CATEGORY_TAGS = new Set<string>([...MASTER_TAG_LIST, 'general']);
 function normalizeCategoryTag(value: unknown): CatalogTag | null {
@@ -25,7 +25,10 @@ interface GenerateParams {
   event: Event;
   budget_min?: number | null;
   budget_max?: number | null;
-  pastGifts: Pick<GiftHistory, 'title'>[];
+  count: number;
+  promptNegatives: string[]; // spec §4.1 — hard "avoid entirely" list, already capped to 4 by the caller
+  dedupTitles: string[]; // already shown/selected this session — spec §8 "don't repeat"
+  catalogExamples?: Pick<CatalogGift, 'title' | 'description' | 'category'>[]; // spec §8 — up to 2, "consider incorporating"
 }
 
 interface GeminiResponse {
@@ -105,12 +108,12 @@ ${MASTER_TAG_LIST.join(', ')}, general
 
 export async function generateGiftRecommendations(params: GenerateParams): Promise<GeminiResponse> {
   await checkGeminiQuota();
-  const { profile, event, budget_min, budget_max, pastGifts } = params;
+  const { profile, event, budget_min, budget_max, count, promptNegatives, dedupTitles, catalogExamples } = params;
 
-  logger.info('Generating recommendations', { profile: profile.name, event: event.type });
+  logger.info('Generating recommendations', { profile: profile.name, event: event.type, count });
 
-  const pastGiftsList = pastGifts.length
-    ? `מתנות שכבר ניתנו בעבר (לא לחזור עליהן): ${pastGifts.map(g => g.title).join(', ')}`
+  const catalogExamplesBlock = catalogExamples?.length
+    ? `מתנות מוכחות מהקטלוג שנמצאו מתאימות (שקול לשלב או להשראה, לא חובה):\n${catalogExamples.map((g, i) => `  ${i + 1}. ${g.title}${g.description ? ` — ${g.description}` : ''}`).join('\n')}`
     : '';
 
   const prompt = `
@@ -127,7 +130,12 @@ export async function generateGiftRecommendations(params: GenerateParams): Promi
 - תיאור חופשי: ${profile.free_text ?? ''}
 - אירוע: ${event.type}
 - תקציב: ${budget_min ?? 50}–${budget_max ?? 300} ₪
-${pastGiftsList}
+${promptNegatives.length ? `- הימנע לחלוטין מהכיוונים הבאים: ${promptNegatives.join(', ')}` : ''}
+${dedupTitles.length ? `- מתנות שכבר הוצגו (אל תחזור עליהן): ${dedupTitles.join(', ')}` : ''}
+${catalogExamplesBlock}
+
+רשימת התגיות המותרת עבור category_tag (בחר בדיוק אחת, או null אם שום תגית לא מתאימה):
+${MASTER_TAG_LIST.join(', ')}, general
 
 החזר JSON בלבד (ללא markdown), עם המבנה הבא:
 {
@@ -137,12 +145,13 @@ ${pastGiftsList}
       "description": "תיאור קצר למה זה מתאים",
       "estimated_price": 150,
       "category": "קטגוריה",
+      "category_tag": "אחת מהתגיות המותרות למעלה, או null",
       "search_query": "מה לחפש בגוגל/אמזון/יד2"
     }
   ]
 }
 
-החזר 5 המלצות ממוינות מהמתאימה ביותר לפחות.
+החזר ${count} המלצות ממוינות מהמתאימה ביותר לפחות.
 `;
 
   const result = await model.generateContent(prompt);
@@ -153,6 +162,7 @@ ${pastGiftsList}
   const json = text.slice(start, end + 1);
 
   const parsed = JSON.parse(json) as GeminiResponse;
+  parsed.recommendations = parsed.recommendations.map(r => ({ ...r, category_tag: normalizeCategoryTag(r.category_tag) }));
   logger.info('Recommendations generated', { count: parsed.recommendations.length });
   return parsed;
 }

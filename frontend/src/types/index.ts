@@ -84,6 +84,8 @@ export interface Recommendation {
   category_tag: string | null;
   search_query: string | null;
   score: number | null;
+  rating: number | null; // 5 = FIT, 2 = NOT_FIT, null = unrated (spec §7.3)
+  batch_id: string | null;
   created_at: string;
   contact?: { name: string };
   image_url?: string | null; // not populated by the backend yet — falls back to a placeholder

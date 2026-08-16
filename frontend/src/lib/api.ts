@@ -68,13 +68,19 @@ export const api = {
     delete: (id: string) => request<null>(`/gifts/${id}`, { method: 'DELETE' }),
   },
   recommendations: {
-    generate: (body: object) => request<any[]>('/recommendations', { method: 'POST', body: JSON.stringify(body) }),
+    generate: (body: object) => request<any>('/recommendations', { method: 'POST', body: JSON.stringify(body) }),
     list: (contactId?: string, eventId?: string) => {
       const params = new URLSearchParams();
       if (contactId) params.set('contact_id', contactId);
       if (eventId) params.set('event_id', eventId);
       return request<any[]>(`/recommendations?${params}`);
     },
+    searchMore: (contactId: string, batchId: string) =>
+      request<{ done: boolean; reason?: string; items: any[] }>('/recommendations/search-more', {
+        method: 'POST', body: JSON.stringify({ contact_id: contactId, batch_id: batchId }),
+      }),
+    rate: (id: string, fit: 'FIT' | 'NOT_FIT') =>
+      request<any>(`/recommendations/${id}/rate`, { method: 'PATCH', body: JSON.stringify({ fit }) }),
   },
   selfRecommendations: {
     list: () => request<any[]>('/self-recommendations'),
