@@ -3,10 +3,11 @@ import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { supabaseForUser } from '../lib/supabase.js';
 import { generateGiftRecommendations } from '../services/gemini.js';
+import { getTopGlobalCandidates } from '../services/recommendationEngine.js';
 import {
-  resolveEffectivePreferences, resolveEffectiveDemographics, sanitize, getAgeBucket, getTopGlobalCandidates,
-} from '../services/recommendationEngine.js';
-import { getExclusionSet, getProvenCandidates, getContactRankedCandidates, getSelfApprovedGifts, matchToPromptCatalogExamples } from '../services/contactRecommendationBatch.js';
+  getExclusionSet, getProvenCandidates, getContactRankedCandidates, getSelfApprovedGifts,
+  matchToPromptCatalogExamples, loadEffectiveContext,
+} from '../services/contactRecommendationBatch.js';
 import { applyRatingFeedback } from '../services/catalogFeedback.js';
 import { Logger } from '../lib/logger.js';
 import type { AuthRequest, CatalogGift } from '../types/index.js';
@@ -33,33 +34,6 @@ function catalogRow(
     contact_id: contactId, event_id: eventId, gift_id: gift.id, title: gift.title, description: gift.description,
     estimated_price: gift.estimated_price, category: gift.category, category_tag: gift.tags[0] ?? null,
     search_query: gift.search_query, score, batch_id: batchId, source,
-  };
-}
-
-// Resolves everything the scoring core + Gemini prompt need for one contact:
-// effective preferences/demographics per spec §3, plus the fields §3 doesn't
-// cover (name/gender/relationship_status/has_children/religion) using the
-// same "linked profile wins, relationship label never overridden" rule.
-async function loadEffectiveContext(db: ReturnType<typeof supabaseForUser>, contact: any) {
-  const linkedProfile = contact.linked_user_id
-    ? (await db.from('user_profiles')
-        .select('display_name, interests, negative_prefs, bio, birth_date, country, gender, relationship_status, has_children, religion')
-        .eq('user_id', contact.linked_user_id).single()).data
-    : null;
-
-  const { effectivePositive, effectiveNegative } = resolveEffectivePreferences(linkedProfile, contact);
-  const { birthDate, country } = resolveEffectiveDemographics(linkedProfile, contact);
-  const { cleanInterests, promptNegatives } = sanitize(effectivePositive, effectiveNegative);
-  const ageBucket = getAgeBucket(birthDate);
-
-  return {
-    cleanInterests, promptNegatives, ageBucket, country, birthDate,
-    gender: linkedProfile?.gender ?? contact.gender ?? null,
-    name: linkedProfile?.display_name ?? contact.name,
-    relationship_status: linkedProfile?.relationship_status ?? contact.relationship_status ?? null,
-    has_children: linkedProfile?.has_children ?? contact.has_children ?? null,
-    religion: linkedProfile?.religion ?? contact.religion ?? null,
-    free_text: linkedProfile?.bio ?? contact.free_text ?? null,
   };
 }
 

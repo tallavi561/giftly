@@ -9,7 +9,7 @@ import giftsRouter from './routes/gifts.js';
 import recommendationsRouter from './routes/recommendations.js';
 import contactRequestsRouter from './routes/contactRequests.js';
 import selfRecommendationsRouter from './routes/selfRecommendations.js';
-import cronRouter, { runReminders } from './routes/cron.js';
+import cronRouter, { runReminders, runSecondChance, runComputeGiftNeighbors } from './routes/cron.js';
 import { Logger } from './lib/logger.js';
 
 const logger = new Logger('server');
@@ -42,5 +42,19 @@ app.listen(PORT, () => {
   cron.schedule(cronExpr, () => {
     logger.info('Scheduled reminder cron triggered');
     runReminders().catch(err => logger.error('Reminder cron failed', err));
+  }, { timezone: 'Asia/Jerusalem' });
+
+  // spec §7.4 / §4.9 — same daily cadence as reminders, offset an hour so
+  // they don't all hit Supabase at once.
+  const secondChanceCronExpr = process.env.SECOND_CHANCE_CRON ?? '0 8 * * *';
+  cron.schedule(secondChanceCronExpr, () => {
+    logger.info('Scheduled second-chance cron triggered');
+    runSecondChance().catch(err => logger.error('Second-chance cron failed', err));
+  }, { timezone: 'Asia/Jerusalem' });
+
+  const cfNeighborsCronExpr = process.env.CF_NEIGHBORS_CRON ?? '0 9 * * *';
+  cron.schedule(cfNeighborsCronExpr, () => {
+    logger.info('Scheduled CF-neighbors cron triggered');
+    runComputeGiftNeighbors().catch(err => logger.error('CF-neighbors cron failed', err));
   }, { timezone: 'Asia/Jerusalem' });
 });

@@ -7,23 +7,58 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AgeBucket, CatalogGift } from '../types/index.js';
 import {
   getRankedCandidates, getDemographicCloseness, getCollaborativeNeighbors,
-  DEMOGRAPHIC_WEIGHTS, type ScoredGiftRef,
+  DEMOGRAPHIC_WEIGHTS, resolveEffectivePreferences, resolveEffectiveDemographics, sanitize, getAgeBucket,
+  type ScoredGiftRef,
 } from './recommendationEngine.js';
 
 const PROVEN_TARGET = 6; // spec §6.1 — tier1 + tier2 always fill up to 6
 const DEMOGRAPHIC_POOL_SIZE = 50; // same perf simplification as selfRecommendationBatch.ts
 const DEDUP_WINDOW_DAYS = 30;
 
+// Resolves everything the scoring core + Gemini prompt need for one contact:
+// effective preferences/demographics per spec §3, plus the fields §3 doesn't
+// cover (name/gender/relationship_status/has_children/religion) using the
+// same "linked profile wins, relationship label never overridden" rule.
+// Shared by the recommendations routes and the second-chance cron job.
+export async function loadEffectiveContext(db: SupabaseClient, contact: any) {
+  const linkedProfile = contact.linked_user_id
+    ? (await db.from('user_profiles')
+        .select('display_name, interests, negative_prefs, bio, birth_date, country, gender, relationship_status, has_children, religion')
+        .eq('user_id', contact.linked_user_id).single()).data
+    : null;
+
+  const { effectivePositive, effectiveNegative } = resolveEffectivePreferences(linkedProfile, contact);
+  const { birthDate, country } = resolveEffectiveDemographics(linkedProfile, contact);
+  const { cleanInterests, promptNegatives } = sanitize(effectivePositive, effectiveNegative);
+  const ageBucket = getAgeBucket(birthDate);
+
+  return {
+    cleanInterests, promptNegatives, ageBucket, country, birthDate,
+    gender: linkedProfile?.gender ?? contact.gender ?? null,
+    name: linkedProfile?.display_name ?? contact.name,
+    relationship_status: linkedProfile?.relationship_status ?? contact.relationship_status ?? null,
+    has_children: linkedProfile?.has_children ?? contact.has_children ?? null,
+    religion: linkedProfile?.religion ?? contact.religion ?? null,
+    free_text: linkedProfile?.bio ?? contact.free_text ?? null,
+  };
+}
+
 // spec §11 "Dedup לאותו נמען": 30-day window on this contact's own
 // recommendations, unioned with everything ever shown to the recipient's own
 // self-suggestions feed (no time limit) if the contact is linked.
+//
+// spec §7.4 "second chance": a row the second-chance cron has flagged
+// (second_chance_shown_at set, still unrated) is exempted from this window
+// exactly once, so it can be offered again instead of being silently
+// dedup'd away forever.
 export async function getExclusionSet(
   db: SupabaseClient,
   contact: { id: string; linked_user_id: string | null },
 ): Promise<Set<string>> {
   const windowStart = new Date(Date.now() - DEDUP_WINDOW_DAYS * 24 * 3600 * 1000).toISOString();
   const [{ data: recentRecs }, selfShown] = await Promise.all([
-    db.from('recommendations').select('gift_id').eq('contact_id', contact.id).gte('created_at', windowStart).not('gift_id', 'is', null),
+    db.from('recommendations').select('gift_id').eq('contact_id', contact.id).gte('created_at', windowStart)
+      .not('gift_id', 'is', null).is('second_chance_shown_at', null),
     contact.linked_user_id
       ? db.from('self_gift_suggestions').select('gift_id').eq('user_id', contact.linked_user_id).not('gift_id', 'is', null)
           .then(({ data }) => data ?? [])
