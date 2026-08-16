@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
-import type { Contact, Event, Recommendation, UserProfile } from '../types/index.js';
+import type { Contact, Event, UserProfile } from '../types/index.js';
 import EventForm, { type EventFormValues } from '../components/EventForm.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
@@ -11,7 +11,6 @@ import { calcAge, formatLocation, nextEventOccurrence, daysUntil } from '../lib/
 import ContactProfileFields from '../components/ContactProfileFields.js';
 import Avatar from '../components/Avatar.js';
 import AvatarPicker from '../components/AvatarPicker.js';
-import RecommendationCarousel from '../components/RecommendationCarousel.js';
 import { useAuth } from '../context/AuthContext.js';
 
 const logger = new Logger('ContactPage');
@@ -47,9 +46,7 @@ export default function ContactPage() {
   const [searchParams] = useSearchParams();
   const [contact, setContact] = useState<Contact | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [showEventForm, setShowEventForm] = useState(searchParams.get('newContact') === 'true');
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -69,8 +66,7 @@ export default function ContactPage() {
     Promise.all([
       api.contacts.get(id),
       api.events.list(id),
-      api.recommendations.list(id),
-    ]).then(([c, e, r]: any[]) => {
+    ]).then(([c, e]: any[]) => {
       logger.info('Contact page loaded', { contactId: id });
       setContact(c);
       setContactForm({
@@ -88,7 +84,6 @@ export default function ContactPage() {
         religion: c.religion ?? '',
       });
       setEvents(e);
-      setRecommendations(r);
     });
   }, [id]);
 
@@ -136,22 +131,6 @@ export default function ContactPage() {
     setContact(prev => (prev ? { ...prev, avatar_mode: updated.avatar_mode, avatar_url: updated.avatar_url } : prev));
   }
 
-  async function generateRecommendations() {
-    if (!selectedEvent || !id) return;
-    setGenerating(true);
-    logger.info('Generating recommendations', { contactId: id, eventId: selectedEvent });
-    try {
-      const result: any = await api.recommendations.generate({ contact_id: id, event_id: selectedEvent });
-      const recs: any[] = result.recommendations ?? result;
-      setRecommendations(r => [...recs, ...r]);
-    } catch (err) {
-      logger.error('Generation failed', err);
-      alert((err as Error).message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   if (!contact) return <div className="loading">טוען...</div>;
 
   const linkedProfile = contact.user_profile as UserProfile | undefined;
@@ -167,19 +146,9 @@ export default function ContactPage() {
   const avatarMode = linkedProfile?.avatar_mode ?? contact.avatar_mode;
   const avatarUrl = linkedProfile?.avatar_url ?? contact.avatar_url;
   const selectedEventObj = events.find(e => e.id === selectedEvent);
-
-  // Budget filter: when an event is selected, keep only recs within its price range
   const budgetMin = selectedEventObj?.budget_min ?? null;
   const budgetMax = selectedEventObj?.budget_max ?? null;
   const hasBudgetFilter = selectedEvent !== null && (budgetMin !== null || budgetMax !== null);
-  const displayedRecs = hasBudgetFilter
-    ? recommendations.filter(r => {
-        const price = r.estimated_price ?? 0;
-        if (budgetMin !== null && price < budgetMin) return false;
-        if (budgetMax !== null && price > budgetMax) return false;
-        return true;
-      })
-    : recommendations;
 
   return (
     <>
@@ -405,7 +374,8 @@ export default function ContactPage() {
                 )}
               </section>
 
-              {/* AI Recommendations */}
+              {/* AI Recommendations — full experience lives on the dedicated find-gift
+                  screen now (see FindGiftPage); this is just the entry point. */}
               <section className="ai-banner">
                 <div className="ai-section-header">
                   <div className="ai-badge">
@@ -426,53 +396,20 @@ export default function ContactPage() {
                         </button>
                       </div>
                     ) : (
-                      <p>
-                        {recommendations.length > 0
-                          ? 'לחץ על אירוע כדי לסנן לפי תקציב'
-                          : 'בחר אירוע וייצר המלצות'}
-                      </p>
+                      <p>{events.length > 0 ? 'בחר אירוע כדי לחפש המלצות מתאימות' : 'הוסף אירוע כדי לקבל המלצות מתנה'}</p>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    {displayedRecs.length > 0 && (
-                      <button
-                        className="btn-tonal"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                        onClick={() => navigate(`/contact/${id}/find-gift${selectedEvent ? `?event=${selectedEvent}` : ''}`)}
-                        title="תצוגה מלאה, כרטיס אחר כרטיס"
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>fullscreen</span>
-                        מסך מלא
-                      </button>
-                    )}
-                    <button
-                      className="btn-filled"
-                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                      onClick={generateRecommendations}
-                      disabled={generating || !selectedEvent}
-                      title={!selectedEvent ? 'בחר אירוע תחילה' : ''}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>lightbulb</span>
-                      {generating ? 'מחשב...' : 'ייצר המלצות'}
-                    </button>
-                  </div>
+                  <button
+                    className="btn-filled"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                    onClick={() => navigate(`/contact/${id}/find-gift${selectedEvent ? `?event=${selectedEvent}` : ''}`)}
+                    disabled={!selectedEvent}
+                    title={!selectedEvent ? 'בחר אירוע תחילה' : ''}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
+                    חפש המלצות
+                  </button>
                 </div>
-
-                {generating ? (
-                  <div className="ai-loader">
-                    <div className="ai-loader-dots"><span /><span /><span /></div>
-                    <p className="ai-loader-text">✨ ה-AI מחפש מתנות מושלמות עבורך...</p>
-                  </div>
-                ) : displayedRecs.length === 0 ? (
-                  <div className="empty-state" style={{ padding: '20px 0' }}>
-                    <span className="material-symbols-outlined">card_giftcard</span>
-                    {hasBudgetFilter
-                      ? 'אין המלצות בתקציב זה — נסה לייצר המלצות חדשות'
-                      : 'בחר אירוע ולחץ "ייצר המלצות" לקבלת הצעות מ-AI'}
-                  </div>
-                ) : (
-                  <RecommendationCarousel items={displayedRecs} />
-                )}
               </section>
             </div>
           </div>
