@@ -10,6 +10,10 @@ import recommendationsRouter from './routes/recommendations.js';
 import contactRequestsRouter from './routes/contactRequests.js';
 import selfRecommendationsRouter from './routes/selfRecommendations.js';
 import cronRouter, { runReminders, runSecondChance, runComputeGiftNeighbors } from './routes/cron.js';
+import hostedEventsRouter from './routes/hostedEvents.js';
+import groupsRouter from './routes/groups.js';
+import groupInvitesRouter from './routes/groupInvites.js';
+import inviteLinksRouter from './routes/inviteLinks.js';
 import { Logger } from './lib/logger.js';
 
 const logger = new Logger('server');
@@ -32,6 +36,10 @@ app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/contact-requests', contactRequestsRouter);
 app.use('/api/self-recommendations', selfRecommendationsRouter);
 app.use('/api/cron', cronRouter);
+app.use('/api/hosted-events', hostedEventsRouter);
+app.use('/api/groups', groupsRouter);
+app.use('/api/group-invites', groupInvitesRouter);
+app.use('/api', inviteLinksRouter); // defines its own /contact-invite-link and /join/:token paths
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

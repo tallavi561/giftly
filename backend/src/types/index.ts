@@ -138,3 +138,58 @@ export interface GeminiRecommendation {
   category_tag: CatalogTag | null;
   search_query: string;
 }
+
+// ---- Event sharing / groups (spec §14) ----
+
+export interface HostedEvent {
+  id: string;
+  owner_user_id: string;
+  type: string;
+  date: string;
+  date_type: 'gregorian' | 'hebrew';
+  description: string | null;
+  created_at: string;
+}
+
+export interface Group {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  created_at: string;
+}
+
+export type GroupMemberStatus = 'INVITED' | 'MEMBER' | 'DECLINED';
+export type JoinedVia = 'DIRECT_INVITE' | 'LINK';
+
+export interface GroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  status: GroupMemberStatus;
+  joined_via: JoinedVia;
+  initiated_by: string | null;
+  created_at: string;
+  responded_at: string | null;
+}
+
+export type InviteLinkTargetType = 'GROUP' | 'CONTACT_LIST';
+
+export interface InviteLink {
+  id: string;
+  token: string;
+  owner_user_id: string;
+  target_type: InviteLinkTargetType;
+  group_id: string | null;
+  created_at: string;
+}
+
+export type EventAudienceTargetType = 'GROUP' | 'CONTACT' | 'ALL_CONTACTS';
+
+export interface EventAudience {
+  id: string;
+  hosted_event_id: string;
+  target_type: EventAudienceTargetType;
+  target_group_id: string | null;
+  target_contact_id: string | null;
+  created_at: string;
+}
