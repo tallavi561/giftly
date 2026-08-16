@@ -99,4 +99,19 @@ export const api = {
       }),
     reject: (id: string) => request<null>(`/contact-requests/${id}/reject`, { method: 'POST' }),
   },
+  groups: {
+    list: () => request<any[]>('/groups'),
+    get: (id: string) => request<any>(`/groups/${id}`),
+    create: (name: string) => request<any>('/groups', { method: 'POST', body: JSON.stringify({ name }) }),
+    members: (id: string) => request<any[]>(`/groups/${id}/members`),
+    invite: (id: string, contactId: string) =>
+      request<any>(`/groups/${id}/invite`, { method: 'POST', body: JSON.stringify({ contact_id: contactId }) }),
+    inviteLink: (id: string) => request<any>(`/groups/${id}/invite-link`, { method: 'POST' }),
+  },
+  groupInvites: {
+    pending: () => request<any[]>('/group-invites'),
+    respond: (id: string, action: 'ACCEPT' | 'DECLINE') =>
+      request<any>(`/group-invites/${id}/respond`, { method: 'PATCH', body: JSON.stringify({ action }) }),
+  },
+  join: (token: string) => request<{ target_type: 'GROUP' | 'CONTACT_LIST' }>(`/join/${token}`, { method: 'POST' }),
 };

@@ -9,9 +9,15 @@ import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
 import { useShellConfig } from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
-import Avatar from '../components/Avatar.js';
 
 const logger = new Logger('ContactsListPage');
+
+// Colored-initial avatar palette for the contacts list (UX-UI/GEMINI/אנשי קשר 2.html)
+const AVATAR_PALETTE = [
+  { bg: 'var(--primary-fixed)', color: 'var(--primary)' },
+  { bg: 'var(--secondary-container)', color: 'var(--on-secondary-container)' },
+  { bg: '#e0f2fe', color: '#0284c7' },
+];
 
 const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', gender: '', birth_date: '', city: '', country: '', relationship_status: '', has_children: '' as '' | 'true' | 'false', religion: '' };
 
@@ -168,12 +174,17 @@ export default function ContactsListPage() {
 
   const pendingOut = outgoingRequests.filter(r => r.status === 'pending');
 
-  const historyBtn = (
-    <button className="icon-btn" onClick={openHistory} title="היסטוריה">
-      <span className="material-symbols-outlined">history</span>
-    </button>
+  const headerExtra = (
+    <>
+      <button className="icon-btn" onClick={() => navigate('/groups')} title="קבוצות">
+        <span className="material-symbols-outlined">groups</span>
+      </button>
+      <button className="icon-btn" onClick={openHistory} title="היסטוריה">
+        <span className="material-symbols-outlined">history</span>
+      </button>
+    </>
   );
-  useShellConfig({ headerExtra: historyBtn });
+  useShellConfig({ headerExtra });
 
   return (
     <>
@@ -257,23 +268,18 @@ export default function ContactsListPage() {
         </div>
       ) : (
         <div className="contacts-list">
-          {visibleContacts.map(c => {
+          {visibleContacts.map((c, i) => {
             const name = (c.user_profile as any)?.display_name ?? c.name;
-            const gender = c.user_profile?.gender ?? c.gender;
-            const avatarMode = c.user_profile?.avatar_mode ?? c.avatar_mode;
-            const avatarUrl = c.user_profile?.avatar_url ?? c.avatar_url;
-            const birthDate = c.user_profile?.birth_date ?? c.birth_date;
+            const palette = AVATAR_PALETTE[i % AVATAR_PALETTE.length];
             return (
-              <div key={c.id} className="contact-row">
-                <div className="contact-row-card" onClick={() => navigate(`/contact/${c.id}`)}>
-                  <div className="contact-row-main">
-                    <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
-                    <h3 className="contact-row-name">{name}</h3>
+              <div key={c.id} className="contact-list-item" onClick={() => navigate(`/contact/${c.id}`)}>
+                <div className="contact-list-main">
+                  <div className="contact-list-avatar" style={{ background: palette.bg, color: palette.color }}>
+                    {name.trim().charAt(0)}
                   </div>
-                  <div className="contact-row-days empty">
-                    <span>{c.relationship || '—'}</span>
-                  </div>
+                  <h3 className="contact-list-name">{name}</h3>
                 </div>
+                {c.relationship && <span className="contact-list-badge">{c.relationship}</span>}
               </div>
             );
           })}

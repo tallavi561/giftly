@@ -547,6 +547,34 @@ a { text-decoration: none; color: inherit; }
 .contact-row-name { font-size: 16px; font-weight: 700; color: var(--on-surface); }
 
 .contact-row-trailing { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Contacts-list card variant — ported from UX-UI/GEMINI/אנשי קשר 2.html:
+   plain colored-initial avatar (not the illustrated Avatar component —
+   deliberately simpler here, dense list vs. the richer profile view) and
+   a relationship badge on the leading side instead of an event countdown. */
+.contact-list-item {
+  background: var(--surface-white);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.contact-list-item:hover { box-shadow: var(--shadow-celebratory); transform: translateY(-2px); }
+.contact-list-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.contact-list-avatar {
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700;
+}
+.contact-list-name { font-size: 16px; font-weight: 600; color: var(--on-surface); }
+.contact-list-badge {
+  flex-shrink: 0;
+  background: var(--surface-container); color: var(--on-surface-variant);
+  font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--r-full);
+}
 .home-find-gift-btn {
   flex-shrink: 0; width: 36px; height: 36px; border-radius: var(--r-full);
   display: flex; align-items: center; justify-content: center;

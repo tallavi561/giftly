@@ -36,6 +36,21 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   res.json([...byId.values()]);
 });
 
+// GET /api/groups/:id — visible to the owner or any member (any status)
+router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  const { user, token } = req as AuthRequest;
+  const db = supabaseForUser(token);
+  const { data: group, error } = await db.from('groups').select('*').eq('id', req.params.id).single();
+  if (error || !group) return void res.status(404).json({ error: 'קבוצה לא נמצאה' });
+
+  if (group.owner_user_id !== user.id) {
+    const { data: membership } = await db.from('group_members').select('status').eq('group_id', group.id).eq('user_id', user.id).maybeSingle();
+    if (!membership) return void res.status(404).json({ error: 'קבוצה לא נמצאה' });
+    return void res.json({ ...group, role: 'member', my_status: membership.status });
+  }
+  res.json({ ...group, role: 'owner' });
+});
+
 // POST /api/groups/:id/invite — direct invite of one of the owner's own
 // linked contacts (spec §14.2 DIRECT_INVITE path)
 router.post('/:id/invite', requireAuth, async (req: Request, res: Response) => {

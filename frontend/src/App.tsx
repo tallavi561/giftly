@@ -12,6 +12,9 @@ import ApproveRequestPage from './pages/ApproveRequestPage.js';
 import ProfilePage from './pages/ProfilePage.js';
 import MyGiftsPage from './pages/MyGiftsPage.js';
 import CalendarPage from './pages/CalendarPage.js';
+import GroupsPage from './pages/GroupsPage.js';
+import GroupDetailPage from './pages/GroupDetailPage.js';
+import JoinPage from './pages/JoinPage.js';
 import AppShellLayout from './components/AppShellLayout.js';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -74,6 +77,9 @@ export default function App() {
           <Route path="/profile" element={<SetupGuard><ProfilePage /></SetupGuard>} />
           <Route path="/my-gifts" element={<SetupGuard><MyGiftsPage /></SetupGuard>} />
           <Route path="/calendar" element={<SetupGuard><CalendarPage /></SetupGuard>} />
+          <Route path="/groups" element={<SetupGuard><GroupsPage /></SetupGuard>} />
+          <Route path="/groups/:id" element={<SetupGuard><GroupDetailPage /></SetupGuard>} />
+          <Route path="/join/:token" element={<SetupGuard><JoinPage /></SetupGuard>} />
         </Route>
       </Routes>
     </AuthProvider>
