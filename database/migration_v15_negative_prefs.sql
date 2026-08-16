@@ -1,6 +1,6 @@
 -- v15: negative_prefs — tags a person (or a contact's owner, on their behalf)
 -- has explicitly ruled out. Feeds the recommendation-engine backoff/scoring
--- (see Architecture/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2, spec §7.2/§7.5).
+-- (see Specs/Back/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2, spec §7.2/§7.5).
 --
 -- user_profiles.negative_prefs is written ONLY from a person's own feedback
 -- on their self-recommendations flow (self_gift_suggestions rating WRONG_CONCEPT).

@@ -17,6 +17,13 @@ interface SelfSuggestion {
   image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
 }
 
+type FeedbackReason = 'WRONG_CONCEPT' | 'WRONG_PRODUCT' | 'TOO_GENERIC';
+const REASON_LABELS: Record<FeedbackReason, string> = {
+  WRONG_CONCEPT: 'הכיוון לא מתאים לי',
+  WRONG_PRODUCT: 'הרעיון בסדר, המוצר הזה לא',
+  TOO_GENERIC: 'לא מספיק מיוחד',
+};
+
 function burstCelebration(container: HTMLElement) {
   const colors = ['#D4AF37', '#5851DB', '#ffffff'];
   const symbols = ['star', 'favorite', 'auto_awesome'];
@@ -64,7 +71,7 @@ function StarRating({ value, big, onChange }: { value: number | null; big?: bool
   );
 }
 
-function FeedCard({ s, isActive, onRate }: { s: SelfSuggestion; isActive: boolean; onRate: (id: string, r: number) => void }) {
+function FeedCard({ s, isActive, onRate }: { s: SelfSuggestion; isActive: boolean; onRate: (id: string, r: number, reason?: FeedbackReason) => void }) {
   const cardRef = useRef<HTMLDivElement>(null);
   // Bump on every activation so the title/description key changes below force
   // a remount, replaying the reveal animation each time the card is scrolled to
@@ -74,9 +81,21 @@ function FeedCard({ s, isActive, onRate }: { s: SelfSuggestion; isActive: boolea
     if (isActive) setPlayKey(k => k + 1);
   }, [isActive]);
 
-  function handleRate(r: number) {
+  // A rating of 3 or below requires a reason before it's sent (backend §7.1) —
+  // hold the star click here and ask, rather than submitting immediately.
+  const [pendingRating, setPendingRating] = useState<number | null>(null);
+
+  function handleStarClick(r: number) {
+    if (r <= 3) { setPendingRating(r); return; }
+    setPendingRating(null);
     onRate(s.id, r);
     if (r === 5 && cardRef.current) burstCelebration(cardRef.current);
+  }
+
+  function handleReasonPick(reason: FeedbackReason) {
+    if (pendingRating === null) return;
+    onRate(s.id, pendingRating, reason);
+    setPendingRating(null);
   }
 
   return (
@@ -106,7 +125,19 @@ function FeedCard({ s, isActive, onRate }: { s: SelfSuggestion; isActive: boolea
 
         <div className="mg-feed-rating-area">
           <p>{s.rating === null ? 'דרג את ההצעה' : `דירגת ב-${s.rating} כוכבים`}</p>
-          <StarRating value={s.rating} big onChange={handleRate} />
+          <StarRating value={pendingRating ?? s.rating} big onChange={handleStarClick} />
+          {pendingRating !== null && (
+            <div className="mg-feedback-reasons">
+              <p>מה בעיקר לא התאים?</p>
+              <div className="mg-feedback-reason-chips">
+                {(Object.keys(REASON_LABELS) as FeedbackReason[]).map(reason => (
+                  <button key={reason} type="button" className="mg-feedback-reason-chip" onClick={() => handleReasonPick(reason)}>
+                    {REASON_LABELS[reason]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {s.search_query && (
             <a
               className="mg-feed-search"
@@ -182,10 +213,10 @@ export default function MyGiftsPage() {
     return () => observer.disconnect();
   }, [suggestions, loading]);
 
-  async function handleRate(id: string, rating: number) {
+  async function handleRate(id: string, rating: number, reason?: FeedbackReason) {
     setSuggestions(prev => prev.map(s => s.id === id ? { ...s, rating } : s));
     try {
-      await api.selfRecommendations.rate(id, rating);
+      await api.selfRecommendations.rate(id, rating, reason);
     } catch (err) {
       logger.error('Rate failed', err);
     }

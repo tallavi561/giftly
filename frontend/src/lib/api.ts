@@ -78,7 +78,9 @@ export const api = {
   },
   selfRecommendations: {
     list: () => request<any[]>('/self-recommendations'),
-    rate: (id: string, rating: number) => request<any>(`/self-recommendations/${id}/rate`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
+    // feedback_reason is required by the backend whenever rating <= 3 (spec §7.1)
+    rate: (id: string, rating: number, feedbackReason?: string) =>
+      request<any>(`/self-recommendations/${id}/rate`, { method: 'PATCH', body: JSON.stringify({ rating, feedback_reason: feedbackReason }) }),
     generate: () => request<any>('/self-recommendations/generate', { method: 'POST' }),
   },
   contactRequests: {

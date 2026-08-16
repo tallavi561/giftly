@@ -185,7 +185,7 @@ export default function ContactPage() {
     <>
           {/* Page header */}
           <div className="contact-page-header">
-            <button className="icon-btn" onClick={() => navigate('/')} title="אנשי קשר">
+            <button className="icon-btn" onClick={() => navigate(-1)} title="חזרה">
               <span className="material-symbols-outlined">chevron_right</span>
             </button>
             <button
@@ -433,16 +433,29 @@ export default function ContactPage() {
                       </p>
                     )}
                   </div>
-                  <button
-                    className="btn-filled"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
-                    onClick={generateRecommendations}
-                    disabled={generating || !selectedEvent}
-                    title={!selectedEvent ? 'בחר אירוע תחילה' : ''}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>lightbulb</span>
-                    {generating ? 'מחשב...' : 'ייצר המלצות'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    {displayedRecs.length > 0 && (
+                      <button
+                        className="btn-tonal"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                        onClick={() => navigate(`/contact/${id}/find-gift${selectedEvent ? `?event=${selectedEvent}` : ''}`)}
+                        title="תצוגה מלאה, כרטיס אחר כרטיס"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>fullscreen</span>
+                        מסך מלא
+                      </button>
+                    )}
+                    <button
+                      className="btn-filled"
+                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                      onClick={generateRecommendations}
+                      disabled={generating || !selectedEvent}
+                      title={!selectedEvent ? 'בחר אירוע תחילה' : ''}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>lightbulb</span>
+                      {generating ? 'מחשב...' : 'ייצר המלצות'}
+                    </button>
+                  </div>
                 </div>
 
                 {generating ? (

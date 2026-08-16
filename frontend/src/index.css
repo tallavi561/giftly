@@ -546,6 +546,29 @@ a { text-decoration: none; color: inherit; }
 .contact-row-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .contact-row-name { font-size: 16px; font-weight: 700; color: var(--on-surface); }
 
+.contact-row-trailing { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.home-find-gift-btn {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: var(--r-full);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary-container); color: var(--primary);
+  transition: filter 0.15s;
+}
+.home-find-gift-btn:hover { filter: brightness(1.08); }
+.home-find-gift-btn .material-symbols-outlined { font-size: 19px; }
+
+.home-suggestions-banner {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 18px; padding: 16px 18px;
+  background: linear-gradient(120deg, var(--primary), var(--wordmark));
+  color: #fff; border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+}
+.home-suggestions-banner strong { font-size: 14px; }
+.home-suggestions-banner p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.home-suggestions-banner > .material-symbols-outlined:first-child { font-size: 26px; flex-shrink: 0; }
+.home-suggestions-banner > .material-symbols-outlined:last-child { flex-shrink: 0; opacity: 0.85; }
+
 /* ── Tags ── */
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .tag {
@@ -1571,6 +1594,17 @@ select:focus {
   text-align: center;
 }
 .mg-feed-rating-area p { font-size: 13px; color: rgba(255,255,255,0.8); }
+
+.mg-feedback-reasons { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.mg-feedback-reason-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 320px; }
+.mg-feedback-reason-chip {
+  font-size: 12px; font-weight: 600; color: #ffffff;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3);
+  padding: 7px 14px; border-radius: var(--r-full);
+  transition: background 0.15s;
+}
+.mg-feedback-reason-chip:hover { background: rgba(255,255,255,0.24); }
+
 .mg-feed-search {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 13px; font-weight: 600; color: #ffffff;
@@ -1586,6 +1620,35 @@ select:focus {
 .mg-star-rating.big .material-symbols-outlined { font-size: 34px; }
 
 .mg-particle { position: absolute; pointer-events: none; z-index: 60; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+
+/* Find-gift feed — same shell as My Gifts, binary fit/not-fit instead of stars */
+.find-gift-back-btn {
+  position: absolute; top: 16px; right: 16px; z-index: 40;
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35); color: #fff;
+  backdrop-filter: blur(4px);
+}
+.find-gift-header-label {
+  position: absolute; top: 24px; left: 16px; z-index: 40;
+  font-size: 13px; font-weight: 600; color: #fff;
+  background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);
+  padding: 8px 14px; border-radius: var(--r-full);
+}
+.find-gift-fit-actions { display: flex; gap: 10px; }
+.find-gift-fit-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: #ffffff;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3);
+  padding: 9px 18px; border-radius: var(--r-full);
+  transition: background 0.15s, transform 0.15s;
+}
+.find-gift-fit-btn:hover { transform: scale(1.04); }
+.find-gift-fit-btn.not-fit.active { background: rgba(255,255,255,0.28); border-color: #ffffff; }
+.find-gift-fit-btn.fit.active {
+  background: var(--tertiary); border-color: var(--tertiary);
+  box-shadow: 0 0 14px rgba(225,29,72,0.6);
+}
 
 .mg-feed-end {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

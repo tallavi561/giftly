@@ -1,6 +1,6 @@
 -- v17: extend recommendations (per-contact flow) with the fields the new
 -- scoring engine needs. score/rating/created_at already exist.
--- See Architecture/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2 (spec §2.5).
+-- See Specs/Back/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2 (spec §2.5).
 
 alter table public.recommendations
   add column if not exists gift_id uuid references public.good_gifts_catalog(id) on delete set null,

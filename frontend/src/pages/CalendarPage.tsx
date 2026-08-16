@@ -242,7 +242,7 @@ export default function CalendarPage() {
                           </div>
                           <button
                             className="cal-goto-btn"
-                            onClick={() => navigate(`/contact/${ev.contact_id}`)}
+                            onClick={() => navigate(`/contact/${ev.contact_id}/find-gift?event=${ev.id}`)}
                           >
                             מצא מתנה
                           </button>
@@ -286,7 +286,7 @@ export default function CalendarPage() {
                               )}
                             </div>
                           </div>
-                          <button className="cal-goto-btn" onClick={() => navigate(`/contact/${ev.contact_id}`)}>
+                          <button className="cal-goto-btn" onClick={() => navigate(`/contact/${ev.contact_id}/find-gift?event=${ev.id}`)}>
                             מצא מתנה
                           </button>
                         </div>

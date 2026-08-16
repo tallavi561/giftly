@@ -7,7 +7,8 @@ import Avatar from './Avatar.js';
 
 interface NavItem { path: string; icon: string; label: string; }
 const NAV_ITEMS: NavItem[] = [
-  { path: '/',          icon: 'contacts',      label: 'אנשי קשר' },
+  { path: '/',          icon: 'redeem',        label: 'בית' }, // placeholder icon until Giftly gets an official gift-icon logo
+  { path: '/contacts',  icon: 'contacts',      label: 'אנשי קשר' },
   { path: '/calendar',  icon: 'calendar_today', label: 'לוח שנה' },
   { path: '/my-gifts',  icon: 'auto_awesome',  label: 'הצעות בשבילי' },
 ];

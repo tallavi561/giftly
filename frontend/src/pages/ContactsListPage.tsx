@@ -3,36 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
-import type { Contact, ContactRequest, Event, Recommendation, UserProfile } from '../types/index.js';
+import type { Contact, ContactRequest, Recommendation, UserProfile } from '../types/index.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
 import TagInput from '../components/TagInput.js';
 import GenderSelect from '../components/GenderSelect.js';
 import { useShellConfig } from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
 import Avatar from '../components/Avatar.js';
-import { nextEventOccurrence, daysUntil } from '../lib/utils.js';
 
-const logger = new Logger('DashboardPage');
+const logger = new Logger('ContactsListPage');
 
 const EMPTY_FORM = { name: '', relationship: '', interests: [] as string[], free_text: '', notes: '', gender: '', birth_date: '', city: '', country: '', relationship_status: '', has_children: '' as '' | 'true' | 'false', religion: '' };
 
 const PRIVACY_BADGE: Record<string, string> = { public: '🔓', approval: '✋', password: '🔑' };
 const PRIVACY_ICON: Record<string, string> = { public: 'public', approval: 'pan_tool', password: 'lock' };
-const EVENT_TYPE_ICONS: Record<string, string> = {
-  'יום הולדת': 'cake',
-  'יום נישואין': 'favorite',
-  'חג': 'celebration',
-  'סיום לימודים': 'school',
-};
 
-export default function DashboardPage() {
+// Pure browse/search/add list — no responsibility for "what's urgent now",
+// that lives on the Home page instead (spec §9(2) in the old FRONTEND_SPEC.md).
+export default function ContactsListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [nameFilter, setNameFilter] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
@@ -48,49 +43,33 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<Recommendation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-
   useEffect(() => {
     Promise.all([
       api.contacts.list(),
-      api.events.list(),
       api.contactRequests.incoming().catch(() => []),
       api.contactRequests.outgoing().catch(() => []),
-    ]).then(([c, ev, inc, out]: any[]) => {
-      logger.info('Dashboard loaded');
+    ]).then(([c, inc, out]: any[]) => {
+      logger.info('Contacts list loaded');
       setContacts(c);
-      setEvents(ev);
       setIncomingRequests(inc);
       setOutgoingRequests(out);
       setLoading(false);
     }).catch(err => {
-      logger.error('Dashboard load failed', err);
+      logger.error('Contacts list load failed', err);
       setLoading(false);
     });
   }, []);
 
-  // For each contact, find their soonest upcoming event (if any)
-  const nextEventByContact = useMemo(() => {
-    const map: Record<string, { type: string; daysUntil: number }> = {};
-    for (const ev of events) {
-      const occurrence = nextEventOccurrence(ev);
-      if (!occurrence) continue;
-      const days = daysUntil(occurrence);
-      const existing = map[ev.contact_id];
-      if (!existing || days < existing.daysUntil) {
-        map[ev.contact_id] = { type: ev.type, daysUntil: days };
-      }
-    }
-    return map;
-  }, [events]);
-
-  function formatCountdown(days: number): string {
-    if (days === 0) return 'היום!';
-    if (days === 1) return 'מחר!';
-    if (days <= 6) return `בעוד ${days} ימים!`;
-    if (days <= 13) return 'בעוד שבוע';
-    if (days <= 45) return `בעוד ${Math.round(days / 7)} שבועות`;
-    return 'חודש הבא';
-  }
+  const visibleContacts = useMemo(() => {
+    const sorted = [...contacts].sort((a, b) => {
+      const nameA = (a.user_profile as any)?.display_name ?? a.name;
+      const nameB = (b.user_profile as any)?.display_name ?? b.name;
+      return nameA.localeCompare(nameB, 'he');
+    });
+    if (!nameFilter.trim()) return sorted;
+    const q = nameFilter.trim().toLowerCase();
+    return sorted.filter(c => ((c.user_profile as any)?.display_name ?? c.name).toLowerCase().includes(q));
+  }, [contacts, nameFilter]);
 
   async function openHistory() {
     setShowHistory(true);
@@ -198,107 +177,108 @@ export default function DashboardPage() {
 
   return (
     <>
-          {/* Requests */}
-          {incomingRequests.length > 0 && (
-            <div className="requests-section">
-              <p className="requests-title">
-                <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: 18 }}>notifications_active</span>
-                בקשות ממתינות לאישורך ({incomingRequests.length})
-              </p>
-              {incomingRequests.map(r => (
-                <div key={r.id} className="request-card">
-                  <div>
-                    <p className="req-name">{(r as any).requester?.display_name ?? r.requester_name ?? 'משתמש'}</p>
-                    <p className="req-sub">רוצה להוסיף אותך כאיש קשר</p>
+      {/* Requests */}
+      {incomingRequests.length > 0 && (
+        <div className="requests-section">
+          <p className="requests-title">
+            <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: 18 }}>notifications_active</span>
+            בקשות ממתינות לאישורך ({incomingRequests.length})
+          </p>
+          {incomingRequests.map(r => (
+            <div key={r.id} className="request-card">
+              <div>
+                <p className="req-name">{(r as any).requester?.display_name ?? r.requester_name ?? 'משתמש'}</p>
+                <p className="req-sub">רוצה להוסיף אותך כאיש קשר</p>
+              </div>
+              <div className="request-actions">
+                <button className="btn-icon-sm approve" onClick={() => approveRequest(r)} title="אשר">
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
+                </button>
+                <button className="btn-icon-sm reject" onClick={() => rejectRequest(r)} title="דחה">
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pendingOut.length > 0 && (
+        <div className="requests-section">
+          <p className="requests-title">
+            <span className="material-symbols-outlined" style={{ color: 'var(--outline)', fontSize: 18 }}>hourglass_empty</span>
+            בקשות שלחת — ממתינות לאישור
+          </p>
+          {pendingOut.map(r => (
+            <div key={r.id} className="request-card pending-out">
+              <div>
+                <p className="req-name">{r.target_profile?.display_name ?? 'משתמש'}</p>
+                <p className="req-sub">ממתין לאישור{r.target_profile?.nickname ? ` (@${r.target_profile.nickname})` : ''}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="page-heading" style={{ marginBottom: 0 }}>
+        <h1 style={{ fontSize: 28 }}>אנשי הקשר שלי</h1>
+        <p>עיון, חיפוש והוספה של אנשי קשר</p>
+      </div>
+
+      {contacts.length > 0 && (
+        <div className="search-bar" style={{ marginTop: 16 }}>
+          <input
+            className="field"
+            placeholder="חפש איש קשר לפי שם..."
+            value={nameFilter}
+            onChange={e => setNameFilter(e.target.value)}
+          />
+        </div>
+      )}
+
+      {/* Floating add-contact button */}
+      <button className="btn-fab" onClick={openForm} title="הוסף איש קשר">
+        <span className="material-symbols-outlined">add</span>
+      </button>
+
+      {/* Contacts grid */}
+      {loading ? (
+        <p style={{ color: 'var(--on-surface-variant)', marginTop: 32 }}>טוען...</p>
+      ) : contacts.length === 0 && !showForm ? (
+        <div className="empty-state">
+          <span className="material-symbols-outlined">people</span>
+          אין עדיין אנשי קשר. לחץ על "הוסף איש קשר" כדי להתחיל.
+        </div>
+      ) : visibleContacts.length === 0 ? (
+        <div className="empty-state">
+          <span className="material-symbols-outlined">search_off</span>
+          לא נמצאו אנשי קשר בשם "{nameFilter}"
+        </div>
+      ) : (
+        <div className="contacts-list">
+          {visibleContacts.map(c => {
+            const name = (c.user_profile as any)?.display_name ?? c.name;
+            const gender = c.user_profile?.gender ?? c.gender;
+            const avatarMode = c.user_profile?.avatar_mode ?? c.avatar_mode;
+            const avatarUrl = c.user_profile?.avatar_url ?? c.avatar_url;
+            const birthDate = c.user_profile?.birth_date ?? c.birth_date;
+            return (
+              <div key={c.id} className="contact-row">
+                <div className="contact-row-card" onClick={() => navigate(`/contact/${c.id}`)}>
+                  <div className="contact-row-main">
+                    <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
+                    <h3 className="contact-row-name">{name}</h3>
                   </div>
-                  <div className="request-actions">
-                    <button className="btn-icon-sm approve" onClick={() => approveRequest(r)} title="אשר">
-                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
-                    </button>
-                    <button className="btn-icon-sm reject" onClick={() => rejectRequest(r)} title="דחה">
-                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
-                    </button>
+                  <div className="contact-row-days empty">
+                    <span>{c.relationship || '—'}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {pendingOut.length > 0 && (
-            <div className="requests-section">
-              <p className="requests-title">
-                <span className="material-symbols-outlined" style={{ color: 'var(--outline)', fontSize: 18 }}>hourglass_empty</span>
-                בקשות שלחת — ממתינות לאישור
-              </p>
-              {pendingOut.map(r => (
-                <div key={r.id} className="request-card pending-out">
-                  <div>
-                    <p className="req-name">{r.target_profile?.display_name ?? 'משתמש'}</p>
-                    <p className="req-sub">ממתין לאישור{r.target_profile?.nickname ? ` (@${r.target_profile.nickname})` : ''}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Header */}
-          <div className="page-heading" style={{ marginBottom: 0 }}>
-            <h1 style={{ fontSize: 28 }}>אנשי הקשר שלי</h1>
-            <p>אירועים קרובים ששווה להתכונן אליהם</p>
-          </div>
-
-          {/* Floating add-contact button */}
-          <button className="btn-fab" onClick={openForm} title="הוסף איש קשר">
-            <span className="material-symbols-outlined">add</span>
-          </button>
-
-          {/* Contacts grid */}
-          {loading ? (
-            <p style={{ color: 'var(--on-surface-variant)', marginTop: 32 }}>טוען...</p>
-          ) : contacts.length === 0 && !showForm ? (
-            <div className="empty-state">
-              <span className="material-symbols-outlined">people</span>
-              אין עדיין אנשי קשר. לחץ על "הוסף איש קשר" כדי להתחיל.
-            </div>
-          ) : (
-            <div className="contacts-list">
-              {contacts.map(c => {
-                const name = (c.user_profile as any)?.display_name ?? c.name;
-                const gender = c.user_profile?.gender ?? c.gender;
-                const avatarMode = c.user_profile?.avatar_mode ?? c.avatar_mode;
-                const avatarUrl = c.user_profile?.avatar_url ?? c.avatar_url;
-                const birthDate = c.user_profile?.birth_date ?? c.birth_date;
-                const nextEvent = nextEventByContact[c.id];
-                const eventTier = !nextEvent ? 'empty' : nextEvent.daysUntil <= 6 ? 'soon' : nextEvent.daysUntil <= 45 ? 'gold' : '';
-                return (
-                  <div key={c.id} className="contact-row">
-                    {eventTier === 'soon' && nextEvent && (
-                      <div className="contact-row-badge">
-                        <span className="material-symbols-outlined">card_giftcard</span>
-                        {nextEvent.type}
-                      </div>
-                    )}
-                    <div className="contact-row-card" onClick={() => navigate(`/contact/${c.id}`)}>
-                      <div className="contact-row-main">
-                        <Avatar name={name} gender={gender} birthDate={birthDate} avatarMode={avatarMode} avatarUrl={avatarUrl} size={56} className="contact-row-avatar" />
-                        <h3 className="contact-row-name">{name}</h3>
-                      </div>
-                      <div className={`contact-row-days${eventTier ? ` ${eventTier}` : ''}`}>
-                        {nextEvent ? (
-                          <>
-                            <span className="material-symbols-outlined icon-fill">{EVENT_TYPE_ICONS[nextEvent.type] ?? 'event'}</span>
-                            <span>{formatCountdown(nextEvent.daysUntil)}</span>
-                          </>
-                        ) : (
-                          <span>אין אירועים קרובים</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {/* Add Contact Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
@@ -451,7 +431,6 @@ export default function DashboardPage() {
           </aside>
         </>
       )}
-
     </>
   );
 }

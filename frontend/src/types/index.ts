@@ -81,9 +81,13 @@ export interface Recommendation {
   description: string | null;
   estimated_price: number | null;
   category: string | null;
+  category_tag: string | null;
   search_query: string | null;
   score: number | null;
   created_at: string;
   contact?: { name: string };
   image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
 }
+
+// spec §7.1-§7.2 — required alongside a self-suggestion rating of 3 or below
+export type FeedbackReason = 'WRONG_CONCEPT' | 'WRONG_PRODUCT' | 'TOO_GENERIC';

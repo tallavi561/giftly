@@ -3,8 +3,10 @@ import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError } from './lib/api.js';
 import LoginPage from './pages/LoginPage.js';
-import DashboardPage from './pages/DashboardPage.js';
+import HomePage from './pages/HomePage.js';
+import ContactsListPage from './pages/ContactsListPage.js';
 import ContactPage from './pages/ContactPage.js';
+import FindGiftPage from './pages/FindGiftPage.js';
 import SetupPage from './pages/SetupPage.js';
 import ApproveRequestPage from './pages/ApproveRequestPage.js';
 import ProfilePage from './pages/ProfilePage.js';
@@ -65,8 +67,10 @@ export default function App() {
         <Route path="/setup" element={<ProtectedRoute><SetupPage /></ProtectedRoute>} />
         <Route path="/approve-request" element={<ApproveRequestPage />} />
         <Route element={<Shell />}>
-          <Route path="/" element={<SetupGuard><DashboardPage /></SetupGuard>} />
+          <Route path="/" element={<SetupGuard><HomePage /></SetupGuard>} />
+          <Route path="/contacts" element={<SetupGuard><ContactsListPage /></SetupGuard>} />
           <Route path="/contact/:id" element={<SetupGuard><ContactPage /></SetupGuard>} />
+          <Route path="/contact/:id/find-gift" element={<SetupGuard><FindGiftPage /></SetupGuard>} />
           <Route path="/profile" element={<SetupGuard><ProfilePage /></SetupGuard>} />
           <Route path="/my-gifts" element={<SetupGuard><MyGiftsPage /></SetupGuard>} />
           <Route path="/calendar" element={<SetupGuard><CalendarPage /></SetupGuard>} />

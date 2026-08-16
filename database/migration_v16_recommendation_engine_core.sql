@@ -1,6 +1,6 @@
 -- v16: recommendation-engine core — internal gift catalog + segment statistics
 -- + item-based collaborative filtering neighbors.
--- See Architecture/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2-3 (spec §2.6-2.13).
+-- See Specs/Back/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2-3 (spec §2.6-2.13).
 --
 -- These tables are global/shared aggregate data, not owned by any single user
 -- (unlike contacts/events/recommendations). RLS is enabled with a read policy

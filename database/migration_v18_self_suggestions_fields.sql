@@ -1,6 +1,6 @@
 -- v18: extend self_gift_suggestions (self-facing flow) with the fields the
 -- new scoring engine needs. batch_id/rating already exist.
--- See Architecture/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2 (spec §2.4).
+-- See Specs/Back/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2 (spec §2.4).
 
 alter table public.self_gift_suggestions
   add column if not exists gift_id uuid references public.good_gifts_catalog(id) on delete set null,

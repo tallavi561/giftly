@@ -3,8 +3,8 @@
 // (routes/recommendations.ts). The only difference between the two consumers
 // is batch composition (how many items from which source), not this module.
 //
-// Implements spec §3-4 of Architecture/Giftly_FullSpec_ForImplementation_v1.1.pdf.
-// See Architecture/BACKEND_RECOMMENDATION_ARCHITECTURE.md §3 for the map from
+// Implements spec §3-4 of Specs/Back/Giftly_FullSpec_ForImplementation_v1.1.pdf.
+// See Specs/Back/BACKEND_RECOMMENDATION_ARCHITECTURE.md §3 for the map from
 // spec sections to the functions below.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
