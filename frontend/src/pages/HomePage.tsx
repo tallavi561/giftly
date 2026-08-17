@@ -133,7 +133,8 @@ export default function HomePage() {
                       title={`מצא מתנה עבור ${name}`}
                       onClick={e => { e.stopPropagation(); navigate(`/contact/${c.id}/find-gift`); }}
                     >
-                      <span className="material-symbols-outlined">redeem</span>
+                      <span className="material-symbols-outlined icon-fill">card_giftcard</span>
+                      חפש מתנות
                     </button>
                   </div>
                 </div>

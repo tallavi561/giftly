@@ -544,9 +544,9 @@ a { text-decoration: none; color: inherit; }
 .contact-row-days.empty { background: transparent; opacity: 0.55; font-weight: 500; color: var(--on-surface-variant); }
 
 .contact-row-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.contact-row-name { font-size: 16px; font-weight: 700; color: var(--on-surface); }
+.contact-row-name { font-size: 16px; font-weight: 700; color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.contact-row-trailing { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.contact-row-trailing { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
 
 /* Contacts-list card variant — ported from UX-UI/GEMINI/אנשי קשר 2.html:
    plain colored-initial avatar (not the illustrated Avatar component —
@@ -598,14 +598,31 @@ a { text-decoration: none; color: inherit; }
   position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
   color: var(--outline); font-size: 18px; pointer-events: none;
 }
+/* Was an icon-only circle whose icon color matched its own background
+   (invisible in practice) — now a labeled pill with proper contrast and a
+   looping wiggle on the icon so its purpose ("find a gift") reads at a glance. */
 .home-find-gift-btn {
-  flex-shrink: 0; width: 36px; height: 36px; border-radius: var(--r-full);
-  display: flex; align-items: center; justify-content: center;
-  background: var(--primary-container); color: var(--primary);
-  transition: filter 0.15s;
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: var(--r-full);
+  background: var(--primary-container); color: var(--on-primary);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  box-shadow: var(--shadow-1);
+  transition: transform 0.15s, box-shadow 0.15s;
 }
-.home-find-gift-btn:hover { filter: brightness(1.08); }
-.home-find-gift-btn .material-symbols-outlined { font-size: 19px; }
+.home-find-gift-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); }
+.home-find-gift-btn .material-symbols-outlined {
+  font-size: 17px;
+  animation: home-gift-wiggle 2.6s ease-in-out infinite;
+  transform-origin: 50% 70%;
+}
+@keyframes home-gift-wiggle {
+  0%, 55%, 100% { transform: rotate(0deg) scale(1); }
+  8%  { transform: rotate(-14deg) scale(1.08); }
+  16% { transform: rotate(11deg) scale(1.08); }
+  24% { transform: rotate(-8deg) scale(1.04); }
+  32% { transform: rotate(5deg) scale(1.04); }
+  40% { transform: rotate(0deg) scale(1); }
+}
 
 .home-suggestions-banner {
   display: flex; align-items: center; gap: 14px;
