@@ -493,60 +493,16 @@ a { text-decoration: none; color: inherit; }
 .card:hover { box-shadow: var(--shadow-2); }
 .card-sm { padding: 16px; }
 
-/* ── Contacts List (Gemini-style cards) ──
-   Ported from UX-UI/GEMINI/אנשי קשר - כללי.html: a floating "badge-note"
-   pill above the card for genuinely urgent events, a days-tag pill inside
-   the card for the general countdown, and avatar+name on the trailing side. */
+/* ── Contacts/Groups list grid wrapper ── the cards inside are
+   .contact-list-item (see below) — the old .contact-row* card family that
+   used to live here was fully superseded by that variant and by Home's own
+   .home-* classes, and had no remaining callers, so it's gone. */
 .contacts-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 28px 16px;
   margin-top: 16px;
 }
-.contact-row {
-  position: relative;
-}
-.contact-row-badge {
-  position: absolute; top: -14px; right: 20px; z-index: 2;
-  display: flex; align-items: center; gap: 6px;
-  background: linear-gradient(135deg, #fb7185, #e11d48);
-  color: #fff;
-  padding: 6px 14px; border-radius: var(--r-full);
-  font-size: 12px; font-weight: 600;
-  box-shadow: 0 4px 12px rgba(225,29,72,0.3);
-}
-.contact-row-badge .material-symbols-outlined { font-size: 14px; }
-
-.contact-row-card {
-  background: var(--surface-white);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-lg);
-  padding: 18px;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  box-shadow: var(--shadow-card);
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.15s;
-}
-.contact-row-card:hover { box-shadow: var(--shadow-celebratory); transform: translateY(-1px); }
-
-.contact-row-days {
-  flex-shrink: 0;
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border-radius: var(--r-sm);
-  font-size: 12px; font-weight: 700; color: var(--on-surface);
-  background: var(--surface-container);
-}
-.contact-row-days .material-symbols-outlined { font-size: 16px; color: var(--primary); }
-.contact-row-days.soon { background: var(--tertiary-container); color: var(--on-tertiary-container); }
-.contact-row-days.soon .material-symbols-outlined { color: var(--on-tertiary-container); }
-.contact-row-days.gold { background: var(--secondary-container); color: var(--on-secondary-container); }
-.contact-row-days.gold .material-symbols-outlined { color: var(--on-secondary-container); }
-.contact-row-days.empty { background: transparent; opacity: 0.55; font-weight: 500; color: var(--on-surface-variant); }
-
-.contact-row-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.contact-row-name { font-size: 16px; font-weight: 700; color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.contact-row-trailing { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
 
 /* Contacts-list card variant — ported from UX-UI/GEMINI/אנשי קשר 2.html:
    plain colored-initial avatar (not the illustrated Avatar component —
@@ -598,23 +554,6 @@ a { text-decoration: none; color: inherit; }
   position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
   color: var(--outline); font-size: 18px; pointer-events: none;
 }
-/* Was an icon-only circle whose icon color matched its own background
-   (invisible in practice) — now a labeled pill with proper contrast and a
-   looping wiggle on the icon so its purpose ("find a gift") reads at a glance. */
-.home-find-gift-btn {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px 14px; border-radius: var(--r-full);
-  background: var(--primary-container); color: var(--on-primary);
-  font-size: 12px; font-weight: 700; white-space: nowrap;
-  box-shadow: var(--shadow-1);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.home-find-gift-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); }
-.home-find-gift-btn .material-symbols-outlined {
-  font-size: 17px;
-  animation: home-gift-wiggle 2.6s ease-in-out infinite;
-  transform-origin: 50% 70%;
-}
 @keyframes home-gift-wiggle {
   0%, 55%, 100% { transform: rotate(0deg) scale(1); }
   8%  { transform: rotate(-14deg) scale(1.08); }
@@ -636,6 +575,109 @@ a { text-decoration: none; color: inherit; }
 .home-suggestions-banner p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 .home-suggestions-banner > .material-symbols-outlined:first-child { font-size: 26px; flex-shrink: 0; }
 .home-suggestions-banner > .material-symbols-outlined:last-child { flex-shrink: 0; opacity: 0.85; }
+
+/* ══════════════════════════════════════════
+   HOME — ported from UX-UI/GEMINI/HOME.html. Shared chrome (top bar,
+   bottom-nav active style) intentionally left alone — those come from the
+   contacts-list mockup and this one's header/nav differ from it; only this
+   page's own content area is rebuilt here.
+══════════════════════════════════════════ */
+.home-hero-text h1 { font-size: 24px; font-weight: 800; color: var(--on-surface); line-height: 1.2; }
+.home-hero-text p { font-size: 14px; color: var(--on-surface-variant); margin-top: 4px; }
+
+.home-spotlight-card {
+  background: linear-gradient(145deg, #4338CA 0%, #6366F1 100%);
+  color: #ffffff;
+  border-radius: var(--r-lg);
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  margin-top: 20px;
+  cursor: pointer;
+}
+.home-spotlight-card::before {
+  content: ''; position: absolute; width: 140px; height: 140px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+  top: -30px; left: -30px; border-radius: 50%;
+}
+.home-spotlight-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.2); backdrop-filter: blur(8px);
+  padding: 6px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; margin-bottom: 14px;
+  position: relative;
+}
+.home-spotlight-tag .material-symbols-outlined { font-size: 14px; }
+.home-spotlight-info { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; position: relative; }
+.home-spotlight-person { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.home-spotlight-avatar {
+  flex-shrink: 0; width: 52px; height: 52px; border-radius: 16px;
+  background: rgba(255,255,255,0.25); border: 1.5px solid rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700;
+}
+.home-spotlight-name { font-size: 18px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-spotlight-date { font-size: 13px; opacity: 0.85; }
+.home-spotlight-countdown {
+  flex-shrink: 0; text-align: center;
+  background: rgba(0,0,0,0.2); padding: 8px 14px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.home-spotlight-countdown .days { font-size: 20px; font-weight: 800; color: #FDE047; line-height: 1; }
+.home-spotlight-countdown .label { font-size: 11px; opacity: 0.8; }
+.home-spotlight-btn {
+  position: relative;
+  width: 100%; padding: 14px; border-radius: 14px; border: none;
+  background: #ffffff; color: var(--primary);
+  font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: transform 0.15s ease;
+}
+.home-spotlight-btn:active { transform: scale(0.98); }
+.home-spotlight-btn .material-symbols-outlined { animation: home-gift-wiggle 2.6s ease-in-out infinite; transform-origin: 50% 70%; }
+
+.home-section-title { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 12px; }
+.home-section-title h3 { font-size: 17px; font-weight: 700; color: var(--on-surface); }
+.home-section-title a { font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer; }
+
+.home-categories-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.home-categories-row::-webkit-scrollbar { display: none; }
+.home-cat-chip {
+  flex-shrink: 0;
+  background: var(--surface-white); border: 1px solid var(--border-card);
+  padding: 10px 14px; border-radius: 10px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--on-surface);
+  white-space: nowrap;
+  opacity: 0.7; cursor: default; /* decorative for now — no generic (non-contact) gift browsing backend yet */
+}
+.home-cat-chip .material-symbols-outlined { font-size: 16px; color: var(--primary); }
+
+.home-upcoming-list { display: flex; flex-direction: column; gap: 12px; }
+.home-event-card-item {
+  background: var(--surface-white);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-card);
+  cursor: pointer;
+}
+.home-event-item-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.home-event-item-icon {
+  flex-shrink: 0; width: 42px; height: 42px; border-radius: 12px;
+  background: var(--primary-fixed); color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+}
+.home-event-item-info h4 { font-size: 15px; font-weight: 700; color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-event-item-info p { font-size: 12px; color: var(--on-surface-variant); }
+.home-event-item-tag {
+  flex-shrink: 0;
+  font-size: 12px; font-weight: 600; color: var(--on-tertiary-container);
+  background: var(--tertiary-container); padding: 4px 8px; border-radius: 8px;
+}
 
 /* ── Tags ── */
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
