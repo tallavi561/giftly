@@ -114,4 +114,7 @@ export const api = {
       request<any>(`/group-invites/${id}/respond`, { method: 'PATCH', body: JSON.stringify({ action }) }),
   },
   join: (token: string) => request<{ target_type: 'GROUP' | 'CONTACT_LIST' }>(`/join/${token}`, { method: 'POST' }),
+  deals: {
+    forMe: () => request<any[]>('/deals/for-me'),
+  },
 };

@@ -91,5 +91,28 @@ export interface Recommendation {
   image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
 }
 
+export interface DealAlert {
+  id: string;
+  title: string;
+  description: string | null;
+  source_site: string;
+  source_url: string;
+  image_url: string | null;
+  current_price: number | null;
+  original_price: number | null;
+  discount_pct: number | null;
+  tags: string[];
+  found_at: string;
+  expires_at: string;
+  is_active: boolean;
+}
+
+export interface MatchedDeal {
+  deal: DealAlert;
+  contact_id: string;
+  contact_name: string;
+  matched_tags: string[];
+}
+
 // spec §7.1-§7.2 — required alongside a self-suggestion rating of 3 or below
 export type FeedbackReason = 'WRONG_CONCEPT' | 'WRONG_PRODUCT' | 'TOO_GENERIC';

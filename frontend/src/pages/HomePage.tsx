@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
-import type { Contact, Event } from '../types/index.js';
+import type { Contact, Event, MatchedDeal } from '../types/index.js';
 import { nextEventOccurrence, daysUntil } from '../lib/utils.js';
 
 const logger = new Logger('HomePage');
@@ -20,6 +20,13 @@ function formatCountdown(days: number): string {
   return `בעוד ${days} ימים`;
 }
 
+// Deals are matched for "buy ahead of a future event" — months read better
+// than a raw day count once we're out that far (spec: FRONTEND_SPEC2.md §10).
+function formatDealTiming(days: number): string {
+  if (days >= 60) return `עוד ${Math.round(days / 30)} חודשים`;
+  return formatCountdown(days);
+}
+
 interface SelfSuggestionSlim { id: string; rating: number | null; batch_id: string }
 interface UpcomingItem { contact: Contact; eventId: string; type: string; days: number; occurrence: Date }
 
@@ -35,6 +42,7 @@ export default function HomePage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [unratedSuggestions, setUnratedSuggestions] = useState(0);
+  const [deals, setDeals] = useState<MatchedDeal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,7 +50,8 @@ export default function HomePage() {
       api.contacts.list(),
       api.events.list(),
       api.selfRecommendations.list().catch(() => [] as SelfSuggestionSlim[]),
-    ]).then(([c, ev, suggestions]: any[]) => {
+      api.deals.forMe().catch(err => { logger.error('Load deals failed', err); return [] as MatchedDeal[]; }),
+    ]).then(([c, ev, suggestions, matchedDeals]: any[]) => {
       logger.info('Home loaded');
       setContacts(c);
       setEvents(ev);
@@ -51,6 +60,7 @@ export default function HomePage() {
       setUnratedSuggestions(
         latestBatchId ? suggestions.filter((s: any) => s.batch_id === latestBatchId && s.rating === null).length : 0,
       );
+      setDeals(matchedDeals);
       setLoading(false);
     }).catch(err => {
       logger.error('Home load failed', err);
@@ -74,6 +84,7 @@ export default function HomePage() {
   }, [contacts, events]);
 
   const [spotlight, ...rest] = upcoming;
+  const upcomingByContact = useMemo(() => new Map(upcoming.map(u => [u.contact.id, u])), [upcoming]);
 
   return (
     <>
@@ -135,6 +146,44 @@ export default function HomePage() {
               </div>
               <span className="material-symbols-outlined">chevron_left</span>
             </div>
+          )}
+
+          {deals.length > 0 && (
+            <>
+              <div className="home-deals-header">
+                <h3>
+                  <span className="material-symbols-outlined icon-fill">local_fire_department</span>
+                  מבצעים שווים לאירועים קדימה
+                </h3>
+                <p>קונים עכשיו בזול ושומרים לאירועים עתידיים 💡</p>
+              </div>
+              <div className="home-deals-scroll">
+                {deals.map(m => {
+                  const upcomingForContact = upcomingByContact.get(m.contact_id);
+                  const forEventText = upcomingForContact
+                    ? `${upcomingForContact.type} ל${m.contact_name} (${formatDealTiming(upcomingForContact.days)})`
+                    : m.contact_name;
+                  return (
+                    <a key={m.deal.id} className="home-deal-card" href={m.deal.source_url} target="_blank" rel="noreferrer">
+                      {m.deal.discount_pct != null && <span className="home-deal-badge">{m.deal.discount_pct}%-</span>}
+                      <div className="home-deal-for-event">
+                        <span className="material-symbols-outlined">calendar_month</span>
+                        {forEventText}
+                      </div>
+                      <div className="home-deal-title">{m.deal.title}</div>
+                      <div className="home-deal-pricing">
+                        {m.deal.current_price != null && <span className="current-price">₪{m.deal.current_price}</span>}
+                        {m.deal.original_price != null && <span className="original-price">₪{m.deal.original_price}</span>}
+                      </div>
+                      <span className="home-deal-action-btn">
+                        לפרטים ורכישה
+                        <span className="material-symbols-outlined">arrow_back</span>
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           <div className="home-section-title">
