@@ -68,10 +68,12 @@ app.listen(PORT, () => {
     runComputeGiftNeighbors().catch(err => logger.error('CF-neighbors cron failed', err));
   }, { timezone: 'Asia/Jerusalem' });
 
-  // Weekly, not daily like the others — each run is ~10 real Gemini calls
-  // with search grounding (pricier than a normal generation call), against
-  // 10 sites. Sunday 6am so it's ready before the week's browsing.
-  const findDealsCronExpr = process.env.DEAL_FINDER_CRON ?? '0 6 * * 0';
+  // Twice a week, not daily like the others — each run is ~10 real Gemini
+  // calls with search grounding (pricier than a normal generation call),
+  // against 10 sites. Sunday (start of the Israeli work/shopping week, new
+  // weekly promotions land) and Thursday (many Israeli retailers push their
+  // weekend sales specifically on Thursday) at 6am, same hour as before.
+  const findDealsCronExpr = process.env.DEAL_FINDER_CRON ?? '0 6 * * 0,4';
   cron.schedule(findDealsCronExpr, () => {
     logger.info('Scheduled deal-finder cron triggered');
     runFindDeals().catch(err => logger.error('Deal-finder cron failed', err));
