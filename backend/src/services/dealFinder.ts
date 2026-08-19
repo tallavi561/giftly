@@ -117,6 +117,61 @@ function validateTags(tags: string[] | undefined): string[] {
   return (tags ?? []).filter(t => valid.has(t));
 }
 
+// Shared insert path for BOTH sources: the automated site-search job below,
+// and the manual WhatsApp-curated ingestion script
+// (backend/scripts/insertManualDeals.ts). Same validation either way —
+// only the site allow-list check is specific to the automated path (a
+// manual deal can legitimately come from anywhere).
+export interface DealInput {
+  title: string;
+  description?: string | null;
+  source_site: string; // domain, or a label like 'whatsapp' for manually-curated deals
+  source_url: string;
+  image_url?: string | null;
+  current_price: number;
+  original_price?: number | null;
+  tags: string[];
+  expires_at?: string | null; // ISO date, if known — otherwise DEFAULT_EXPIRY_DAYS from now
+}
+
+export interface InsertOutcome { ok: boolean; reason?: string }
+
+export async function insertValidatedDeal(input: DealInput): Promise<InsertOutcome> {
+  if (!input.title || input.current_price == null) return { ok: false, reason: 'missing title or current_price' };
+
+  const tags = validateTags(input.tags);
+  if (tags.length === 0) return { ok: false, reason: 'no tags from the Master Tag List' };
+
+  const discountPct = input.original_price && input.original_price > input.current_price
+    ? Math.round((1 - input.current_price / input.original_price) * 100)
+    : null;
+
+  const expiresAt = input.expires_at && !isNaN(Date.parse(input.expires_at))
+    ? new Date(input.expires_at).toISOString()
+    : new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 3600 * 1000).toISOString();
+
+  const { error } = await supabase.from('deal_alerts').insert({
+    title: input.title,
+    description: input.description ?? null,
+    source_site: input.source_site,
+    source_url: input.source_url,
+    image_url: input.image_url ?? null,
+    current_price: input.current_price,
+    original_price: input.original_price ?? null,
+    discount_pct: discountPct,
+    tags,
+    expires_at: expiresAt,
+  });
+  if (error) return { ok: false, reason: error.message };
+  return { ok: true };
+}
+
+export async function deactivateExpiredDeals(): Promise<void> {
+  // Passive cleanup — flip anything past its expiry to inactive so every
+  // read site doesn't need to repeat an expires_at filter.
+  await supabase.from('deal_alerts').update({ is_active: false }).lt('expires_at', new Date().toISOString()).eq('is_active', true);
+}
+
 export interface FindDealsResult { inserted: number; skipped: number; sitesSearched: number }
 
 export async function runFindDeals(): Promise<FindDealsResult> {
@@ -135,40 +190,22 @@ export async function runFindDeals(): Promise<FindDealsResult> {
     for (const deal of deals) {
       const url = normalizeUrl(deal.source_url);
       // Enforced, not just prompted — reject anything not actually hosted on the requested domain.
-      if (!url || !(url.hostname === site.domain || url.hostname.endsWith(`.${site.domain}`))) { skipped++; continue; }
-      if (!deal.title || deal.current_price == null) { skipped++; continue; }
+      if (!url || !(url.hostname === site.domain || url.hostname.endsWith(`.${site.domain}`)) || deal.current_price == null) {
+        skipped++;
+        continue;
+      }
 
-      const tags = validateTags(deal.tags);
-      if (tags.length === 0) { skipped++; continue; }
-
-      const discountPct = deal.original_price && deal.original_price > deal.current_price
-        ? Math.round((1 - deal.current_price / deal.original_price) * 100)
-        : null;
-
-      const expiresAt = deal.expires_at && !isNaN(Date.parse(deal.expires_at))
-        ? new Date(deal.expires_at).toISOString()
-        : new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 3600 * 1000).toISOString();
-
-      const { error } = await supabase.from('deal_alerts').insert({
-        title: deal.title,
-        description: deal.description ?? null,
-        source_site: site.domain,
-        source_url: deal.source_url,
-        image_url: deal.image_url ?? null,
-        current_price: deal.current_price,
-        original_price: deal.original_price ?? null,
-        discount_pct: discountPct,
-        tags,
-        expires_at: expiresAt,
+      const outcome = await insertValidatedDeal({
+        title: deal.title, description: deal.description, source_site: site.domain, source_url: deal.source_url,
+        image_url: deal.image_url, current_price: deal.current_price, original_price: deal.original_price,
+        tags: deal.tags ?? [], expires_at: deal.expires_at,
       });
-      if (error) { logger.error('Insert deal failed', { site: site.domain, error }); skipped++; }
-      else inserted++;
+      if (outcome.ok) inserted++;
+      else { logger.warn('Skipped deal', { site: site.domain, reason: outcome.reason }); skipped++; }
     }
   }
 
-  // Passive cleanup — flip anything past its expiry to inactive so every
-  // read site doesn't need to repeat an expires_at filter.
-  await supabase.from('deal_alerts').update({ is_active: false }).lt('expires_at', new Date().toISOString()).eq('is_active', true);
+  await deactivateExpiredDeals();
 
   logger.info('Deal search done', { inserted, skipped, sitesSearched: ALLOWED_SITES.length });
   return { inserted, skipped, sitesSearched: ALLOWED_SITES.length };

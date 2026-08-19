@@ -138,6 +138,7 @@
 - **הערה טכנית חשובה**: ה-SDK הקיים (`@google/generative-ai`, גרסה legacy) תומך רק בכלי ה-grounding הישן (`googleSearchRetrieval`, מתאים ל-Gemini 1.5) — בדקתי את זה ישירות מול ה-`.d.ts` של הגרסה העדכנית ביותר שלו (0.24.1) ואין תמיכה בכלי `google_search` החדש שדרוש ל-`gemini-2.5-flash`. כדי לא לגעת ב-SDK המשותף (ולסכן את קריאות ה-Gemini הקיימות של שאר המנגנון), `dealFinder.ts` קורא ל-REST API של Gemini ישירות עם `fetch()`, לא דרך ה-SDK.
 - `POST /api/cron/find-deals` (מוגן `x-admin-secret`, כמו שאר ה-cron endpoints) + מתוזמן אוטומטית ב-`index.ts` (`DEAL_FINDER_CRON`, ברירת מחדל יום ראשון 06:00).
 - `GET /api/deals/for-me` — מחזיר עד 10 מבצעים פעילים ולא-פגי-תוקף, משודכים לאנשי הקשר של המשתמש המחובר (overlap תגיות), ממוינים לפי אחוז הנחה.
+- **מקור מבצעים שני, ידני**: `backend/scripts/insertManualDeals.ts` (`npm run insert:deals -- path/to/deals.json`) — מכניס מבצעים שנאספו ידנית (למשל מקבוצת וואטסאפ) לאותה טבלה, עם אותה ולידציה בדיוק (`insertValidatedDeal`, פונקציה משותפת שחולצה מ-`dealFinder.ts`) — רק בלי אכיפת ה-domain allow-list, כי מבצע ידני יכול להגיע מכל אתר. זה לא מחליף את ה-cron האוטומטי, משלים אותו.
 
 **לא הרצתי את ה-cron בפועל** — כמו סקריפט ה-seed, זו פעולה שכותבת נתונים אמיתיים וצורכת quota אמיתי (יקר יותר מקריאה רגילה, בגלל ה-grounding), אז ההחלטה מתי להריץ בפעם הראשונה נשארת אצלך (`GET /api/cron/find-deals` עם ה-header, או פשוט לחכות ליום ראשון הקרוב).
 
