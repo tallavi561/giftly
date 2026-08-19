@@ -9,7 +9,8 @@ import giftsRouter from './routes/gifts.js';
 import recommendationsRouter from './routes/recommendations.js';
 import contactRequestsRouter from './routes/contactRequests.js';
 import selfRecommendationsRouter from './routes/selfRecommendations.js';
-import cronRouter, { runReminders, runSecondChance, runComputeGiftNeighbors } from './routes/cron.js';
+import cronRouter, { runReminders, runSecondChance, runComputeGiftNeighbors, runFindDeals } from './routes/cron.js';
+import dealsRouter from './routes/deals.js';
 import hostedEventsRouter from './routes/hostedEvents.js';
 import groupsRouter from './routes/groups.js';
 import groupInvitesRouter from './routes/groupInvites.js';
@@ -40,6 +41,7 @@ app.use('/api/hosted-events', hostedEventsRouter);
 app.use('/api/groups', groupsRouter);
 app.use('/api/group-invites', groupInvitesRouter);
 app.use('/api', inviteLinksRouter); // defines its own /contact-invite-link and /join/:token paths
+app.use('/api/deals', dealsRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -64,5 +66,14 @@ app.listen(PORT, () => {
   cron.schedule(cfNeighborsCronExpr, () => {
     logger.info('Scheduled CF-neighbors cron triggered');
     runComputeGiftNeighbors().catch(err => logger.error('CF-neighbors cron failed', err));
+  }, { timezone: 'Asia/Jerusalem' });
+
+  // Weekly, not daily like the others — each run is ~10 real Gemini calls
+  // with search grounding (pricier than a normal generation call), against
+  // 10 sites. Sunday 6am so it's ready before the week's browsing.
+  const findDealsCronExpr = process.env.DEAL_FINDER_CRON ?? '0 6 * * 0';
+  cron.schedule(findDealsCronExpr, () => {
+    logger.info('Scheduled deal-finder cron triggered');
+    runFindDeals().catch(err => logger.error('Deal-finder cron failed', err));
   }, { timezone: 'Asia/Jerusalem' });
 });

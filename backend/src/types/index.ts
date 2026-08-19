@@ -193,3 +193,21 @@ export interface EventAudience {
   target_contact_id: string | null;
   created_at: string;
 }
+
+// ---- Deal matching (Specs/Front/FRONTEND_SPEC2.md §10) ----
+
+export interface DealAlert {
+  id: string;
+  title: string;
+  description: string | null;
+  source_site: string;
+  source_url: string;
+  image_url: string | null;
+  current_price: number | null;
+  original_price: number | null;
+  discount_pct: number | null;
+  tags: string[];
+  found_at: string;
+  expires_at: string;
+  is_active: boolean;
+}

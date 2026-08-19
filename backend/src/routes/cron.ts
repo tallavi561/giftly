@@ -4,6 +4,7 @@ import { sendReminderEmail } from '../services/email.js';
 import { Logger } from '../lib/logger.js';
 import { loadEffectiveContext } from '../services/contactRecommendationBatch.js';
 import { applyRatingFeedback } from '../services/catalogFeedback.js';
+import { runFindDeals as runFindDealsJob } from '../services/dealFinder.js';
 
 const router = Router();
 const logger = new Logger('cron');
@@ -294,6 +295,30 @@ router.get('/compute-neighbors', async (req: Request, res: Response) => {
   if (!secret || secret !== process.env.ADMIN_SECRET) return void res.status(401).json({ error: 'Unauthorized' });
   try {
     res.json(await runComputeGiftNeighbors());
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// spec §10 (FRONTEND_SPEC2.md) — real deals from a fixed site allow-list,
+// see dealFinder.ts. Not run automatically by anything except the schedule
+// below — each run costs real Gemini quota (search grounding) and writes
+// real rows, so it's deliberately not something the agent triggers itself.
+export async function runFindDeals(): Promise<{ inserted: number; skipped: number; sitesSearched: number; alreadyRan?: boolean }> {
+  if (await hasRunToday('find_deals')) {
+    logger.info('Deal-finder cron already ran today');
+    return { inserted: 0, skipped: 0, sitesSearched: 0, alreadyRan: true };
+  }
+  const result = await runFindDealsJob();
+  await recordRun('find_deals', { ...result });
+  return result;
+}
+
+router.get('/find-deals', async (req: Request, res: Response) => {
+  const secret = req.headers['x-admin-secret'];
+  if (!secret || secret !== process.env.ADMIN_SECRET) return void res.status(401).json({ error: 'Unauthorized' });
+  try {
+    res.json(await runFindDeals());
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
