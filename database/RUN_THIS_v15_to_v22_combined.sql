@@ -268,12 +268,9 @@ alter table public.groups enable row level security;
 drop policy if exists "owner manages own groups" on public.groups;
 create policy "owner manages own groups" on public.groups
   for all using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
--- Members need to be able to see the group they belong to (e.g. its name).
-drop policy if exists "members can read their groups" on public.groups;
-create policy "members can read their groups" on public.groups
-  for select using (
-    exists (select 1 from public.group_members gm where gm.group_id = groups.id and gm.user_id = auth.uid())
-  );
+-- The "members can read their groups" policy is added further down, right
+-- after group_members exists — a policy can't reference a table that
+-- doesn't exist yet at CREATE POLICY time.
 
 create index if not exists groups_owner_btree on public.groups (owner_user_id);
 
@@ -304,6 +301,14 @@ create policy "group owner manages memberships" on public.group_members
 
 create index if not exists group_members_group_user_btree on public.group_members (group_id, user_id);
 create index if not exists group_members_user_status_btree on public.group_members (user_id, status);
+
+-- Now that group_members exists: members need to be able to see the group
+-- they belong to (e.g. its name), not just what they own.
+drop policy if exists "members can read their groups" on public.groups;
+create policy "members can read their groups" on public.groups
+  for select using (
+    exists (select 1 from public.group_members gm where gm.group_id = groups.id and gm.user_id = auth.uid())
+  );
 
 -- invite_links (spec §2.17) — one shape for both "join this group" and
 -- "add me to your distribution list" links.
