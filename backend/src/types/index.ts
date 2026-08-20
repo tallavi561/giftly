@@ -43,6 +43,7 @@ export interface CatalogGift {
   estimated_price: number | null;
   category: string | null;
   search_query: string | null;
+  source_url: string | null; // real purchase link, when known (migration_v22) — frontend doesn't read this yet
   tags: string[];
   global_shown: number;
   global_liked: number;
