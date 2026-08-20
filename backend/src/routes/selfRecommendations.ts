@@ -75,7 +75,7 @@ router.post('/generate', async (_req: Request, res: Response) => {
 
   const { data: profiles, error } = await supabase
     .from('user_profiles')
-    .select('user_id, display_name, gender, birth_date, interests, negative_prefs, free_text, bio, city, country');
+    .select('user_id, display_name, gender, birth_date, interests, negative_prefs, bio, city, country');
 
   if (error) { logger.error('Fetch profiles failed', error); return void res.status(500).json({ error: error.message }); }
   if (!profiles?.length) return void res.json({ generated: 0, profiles: 0 });
@@ -113,7 +113,7 @@ router.post('/generate', async (_req: Request, res: Response) => {
       if (plan.geminiCount > 0) {
         const suggestions = await generateSelfGiftSuggestions({
           display_name: profile.display_name, gender: profile.gender, birth_date: profile.birth_date,
-          interests: profile.interests, negative_prefs: profile.negative_prefs, free_text: profile.free_text,
+          interests: profile.interests, negative_prefs: profile.negative_prefs,
           bio: profile.bio, city: profile.city, country: profile.country,
         }, plan.geminiCount);
         geminiRows = suggestions.map(s => ({
