@@ -5,7 +5,7 @@ import { Logger } from '../lib/logger.js';
 import type { Contact, Event, UserProfile } from '../types/index.js';
 import EventForm, { type EventFormValues } from '../components/EventForm.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
-import TagInput from '../components/TagInput.js';
+import InterestPicker, { INTEREST_LABELS } from '../components/InterestPicker.js';
 import GenderSelect from '../components/GenderSelect.js';
 import { calcAge, formatLocation, nextEventOccurrence, daysUntil } from '../lib/utils.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
@@ -252,7 +252,7 @@ export default function ContactPage() {
 
                   {displayInterests?.length > 0 && (
                     <div className="tags">
-                      {displayInterests.map(i => <span key={i} className="tag">{i}</span>)}
+                      {displayInterests.map(i => <span key={i} className="tag">{INTEREST_LABELS[i] ?? i}</span>)}
                     </div>
                   )}
 
@@ -272,7 +272,7 @@ export default function ContactPage() {
                   <div className="field"><label>קשר</label><input placeholder="חבר, בן דוד..." value={contactForm.relationship} onChange={e => setContactForm(f => ({ ...f, relationship: e.target.value }))} /></div>
                   {!linkedProfile && (
                     <>
-                      <div className="field"><label>תחומי עניין</label><TagInput value={contactForm.interests} onChange={tags => setContactForm(f => ({ ...f, interests: tags }))} placeholder="הקלד ולחץ פסיק" /></div>
+                      <div className="field"><label>תחומי עניין</label><InterestPicker value={contactForm.interests} onChange={tags => setContactForm(f => ({ ...f, interests: tags }))} /></div>
                       <div className="field"><label>תיאור חופשי</label><textarea value={contactForm.free_text} onChange={e => setContactForm(f => ({ ...f, free_text: e.target.value }))} rows={2} /></div>
                       <div className="field"><label>מגדר</label><GenderSelect value={contactForm.gender} onChange={v => setContactForm(f => ({ ...f, gender: v }))} /></div>
                       <LocationBirthFields birth_date={contactForm.birth_date} city={contactForm.city} country={contactForm.country} onChange={(field, value) => setContactForm(f => ({ ...f, [field]: value }))} />

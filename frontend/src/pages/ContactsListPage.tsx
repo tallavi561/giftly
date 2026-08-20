@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
 import type { Contact, ContactRequest, Recommendation, UserProfile } from '../types/index.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
-import TagInput from '../components/TagInput.js';
+import InterestPicker from '../components/InterestPicker.js';
 import GenderSelect from '../components/GenderSelect.js';
 import { useShellConfig } from '../components/AppShellLayout.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
@@ -363,7 +363,7 @@ export default function ContactsListPage() {
                 <>
                   <div className="field">
                     <label>תחומי עניין</label>
-                    <TagInput value={form.interests} onChange={tags => setForm(f => ({ ...f, interests: tags }))} placeholder="הקלד ולחץ פסיק" />
+                    <InterestPicker value={form.interests} onChange={tags => setForm(f => ({ ...f, interests: tags }))} />
                   </div>
                   <div className="field">
                     <label>תיאור חופשי</label>

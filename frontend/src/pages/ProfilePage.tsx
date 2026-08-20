@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.js';
-import TagInput from '../components/TagInput.js';
+import InterestPicker from '../components/InterestPicker.js';
 import GenderSelect from '../components/GenderSelect.js';
 import ContactProfileFields from '../components/ContactProfileFields.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
@@ -122,7 +122,7 @@ export default function ProfilePage() {
 
                 <div className="field">
                   <label>תחביבים ותחומי עניין</label>
-                  <TagInput value={form.interests} onChange={v => set('interests', v)} placeholder="ספורט, מוזיקה, בישול..." />
+                  <InterestPicker value={form.interests} onChange={v => set('interests', v)} />
                 </div>
 
                 <div className="field">

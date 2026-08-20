@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
 import { useAuth } from '../context/AuthContext.js';
 import LocationBirthFields from '../components/LocationBirthFields.js';
-import TagInput from '../components/TagInput.js';
+import InterestPicker from '../components/InterestPicker.js';
 import AvatarPicker, { type AvatarMode } from '../components/AvatarPicker.js';
 
 const logger = new Logger('SetupPage');
@@ -173,10 +173,9 @@ export default function SetupPage() {
                 תחומי עניין
               </h2>
               <p className="setup-section-hint">נוסיף תחומי עניין כדי שה-AI שלנו יוכל להציע מתנות מדויקות יותר.</p>
-              <TagInput
+              <InterestPicker
                 value={form.interests}
                 onChange={tags => setForm(f => ({ ...f, interests: tags }))}
-                placeholder="הקלד ולחץ פסיק — טכנולוגיה, בישול..."
               />
             </section>
 
