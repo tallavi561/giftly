@@ -19,6 +19,7 @@ create table if not exists public.hosted_events (
 );
 
 alter table public.hosted_events enable row level security;
+drop policy if exists "owner manages own hosted_events" on public.hosted_events;
 create policy "owner manages own hosted_events" on public.hosted_events
   for all using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
 
@@ -33,9 +34,11 @@ create table if not exists public.groups (
 );
 
 alter table public.groups enable row level security;
+drop policy if exists "owner manages own groups" on public.groups;
 create policy "owner manages own groups" on public.groups
   for all using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
 -- Members need to be able to see the group they belong to (e.g. its name).
+drop policy if exists "members can read their groups" on public.groups;
 create policy "members can read their groups" on public.groups
   for select using (
     exists (select 1 from public.group_members gm where gm.group_id = groups.id and gm.user_id = auth.uid())
@@ -57,8 +60,10 @@ create table if not exists public.group_members (
 );
 
 alter table public.group_members enable row level security;
+drop policy if exists "member sees and updates own membership" on public.group_members;
 create policy "member sees and updates own membership" on public.group_members
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "group owner manages memberships" on public.group_members;
 create policy "group owner manages memberships" on public.group_members
   for all using (
     exists (select 1 from public.groups g where g.id = group_members.group_id and g.owner_user_id = auth.uid())
@@ -84,6 +89,7 @@ create table if not exists public.invite_links (
 );
 
 alter table public.invite_links enable row level security;
+drop policy if exists "owner manages own invite_links" on public.invite_links;
 create policy "owner manages own invite_links" on public.invite_links
   for all using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
 
@@ -106,6 +112,7 @@ create table if not exists public.event_audience (
 );
 
 alter table public.event_audience enable row level security;
+drop policy if exists "hosted_event owner manages its audience" on public.event_audience;
 create policy "hosted_event owner manages its audience" on public.event_audience
   for all using (
     exists (select 1 from public.hosted_events he where he.id = event_audience.hosted_event_id and he.owner_user_id = auth.uid())
