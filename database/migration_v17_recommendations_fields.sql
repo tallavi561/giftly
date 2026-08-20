@@ -1,8 +1,14 @@
 -- v17: extend recommendations (per-contact flow) with the fields the new
--- scoring engine needs. score/rating/created_at already exist.
+-- scoring engine needs. score/created_at already existed (schema_v2.sql);
+-- rating did NOT — that was a mistaken assumption when this file was first
+-- written (confused with self_gift_suggestions.rating, added back in v7).
+-- Caught when running this migration for the first time: without it, the
+-- binary rate endpoint (PATCH /recommendations/:id/rate) would fail at
+-- runtime with "column rating does not exist".
 -- See Specs/Back/BACKEND_RECOMMENDATION_ARCHITECTURE.md §2 (spec §2.5).
 
 alter table public.recommendations
+  add column if not exists rating integer check (rating >= 1 and rating <= 5),
   add column if not exists gift_id uuid references public.good_gifts_catalog(id) on delete set null,
   add column if not exists category_tag text,
   add column if not exists batch_id uuid,
