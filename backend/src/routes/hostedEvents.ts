@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { supabaseForUser } from '../lib/supabase.js';
+import { supabase, supabaseForUser } from '../lib/supabase.js';
 import { getVisibleHostedEvents, assertContactReachable } from '../services/eventSharing.js';
 import { Logger } from '../lib/logger.js';
 import type { AuthRequest, EventAudienceTargetType } from '../types/index.js';
@@ -60,10 +60,13 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
 // GET /api/hosted-events/visible — hosted events shared WITH me (spec §14.3)
 router.get('/visible', requireAuth, async (req: Request, res: Response) => {
-  const { user, token } = req as AuthRequest;
-  const db = supabaseForUser(token);
+  const { user } = req as AuthRequest;
   try {
-    const events = await getVisibleHostedEvents(db, user.id);
+    // getVisibleHostedEvents crosses ownership boundaries by design (reading
+    // other users' hosted_events/event_audience rows) — a user-scoped client
+    // would be blocked by the owner-only RLS policies on both tables and
+    // silently return nothing, so this needs the service-role client.
+    const events = await getVisibleHostedEvents(supabase, user.id);
     res.json(events);
   } catch (err) {
     logger.error('Resolve visible hosted_events failed', err);
