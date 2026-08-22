@@ -112,6 +112,8 @@ export interface MatchedDeal {
   contact_id: string;
   contact_name: string;
   matched_tags: string[];
+  category_label: string;
+  match_reason: string;
 }
 
 // spec §7.1-§7.2 — required alongside a self-suggestion rating of 3 or below

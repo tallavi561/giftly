@@ -17,6 +17,7 @@ import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { MASTER_TAG_LIST } from '../src/types/index.js';
+import { isGiftAppropriate } from '../src/services/giftAppropriateness.js';
 import { logScriptOutput } from './lib/scriptOutput.js';
 
 const ITEMS_PER_TAG = 25; // 11 interest tags + general = 12 * 25 = 300
@@ -104,6 +105,9 @@ async function main() {
 
       const validSecondary = (idea.secondary_tags ?? []).filter(t => (ALL_TAGS as readonly string[]).includes(t) && t !== tag);
       const tags = [tag, ...validSecondary];
+
+      const appropriateness = await isGiftAppropriate(idea.title, idea.description);
+      if (!appropriateness.ok) { console.log(`  skip (not gift-appropriate: ${appropriateness.reason}): ${idea.title}`); continue; }
 
       const { data: gift, error } = await supabase.from('good_gifts_catalog').insert({
         title: idea.title, description: idea.description, estimated_price: idea.estimated_price,

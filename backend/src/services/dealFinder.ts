@@ -16,7 +16,7 @@
 
 import { supabase } from '../lib/supabase.js';
 import { Logger } from '../lib/logger.js';
-import { MASTER_TAG_LIST } from '../types/index.js';
+import { MASTER_TAG_LIST, TAG_LABEL_HE, type CatalogTag } from '../types/index.js';
 import { parseJsonObjectLoose } from '../lib/jsonExtract.js';
 import { isGiftAppropriate } from './giftAppropriateness.js';
 
@@ -26,28 +26,70 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const MODEL = 'gemini-2.5-flash';
 const DEFAULT_EXPIRY_DAYS = parseInt(process.env.DEAL_DEFAULT_EXPIRY_DAYS ?? '10', 10);
 
-const TAG_LABEL_HE: Record<string, string> = {
-  sports: 'ספורט', music: 'נגינה', performances: 'הופעות/סטנדאפ', art: 'ציור/אומנות',
-  culinary: 'קפה/קולינריה', travel: 'טיולים/טבע', extreme: 'אקסטרים', workshops: 'סדנאות/זוגיות',
-  tech: 'טכנולוגיה/גאדטים', books: 'ספרים/ידע', gaming: 'גיימינג', general: 'כללי',
-};
+interface SiteRef { domain: string; label: string }
 
-// User-provided (Amazon, Castro, Magnolia) + recommended additions covering
-// the rest of the Master Tag List reasonably well. Edit freely — this list
-// is the enforced allow-list, not just a prompt hint (see the hostname
-// check in runFindDeals below).
-export const ALLOWED_SITES = [
-  { domain: 'amazon.com', label: 'Amazon' },
-  { domain: 'castro.co.il', label: 'Castro' },
-  { domain: 'magnolia.co.il', label: 'Magnolia' },
-  { domain: 'zap.co.il', label: 'ZAP' },
-  { domain: 'ksp.co.il', label: 'KSP' },
-  { domain: 'ivory.co.il', label: 'Ivory' },
-  { domain: 'groupon.co.il', label: 'Groupon Israel' },
-  { domain: 'fox.co.il', label: 'Fox' },
-  { domain: 'terminalx.com', label: 'Terminal X' },
-  { domain: 'bug.co.il', label: 'BUG' },
-];
+// Real, verified (WebSearch, 2026-08-22) Israeli/international retail sites,
+// mapped per Master Tag List category — each with at least 2 sites so one
+// dead/uncooperative site doesn't leave a whole category with zero coverage.
+// A site can legitimately appear under more than one category (e.g. BUYME
+// sells experience gifts spanning several). Searches run per (category,
+// site) pair — see runFindDeals — so every found deal already carries the
+// correct category instead of leaving tagging to chance.
+export const CATEGORY_SITES: Record<CatalogTag, SiteRef[]> = {
+  sports: [
+    { domain: 'decathlon.co.il', label: 'Decathlon' },
+    { domain: 'megasport.co.il', label: 'מגה ספורט' },
+  ],
+  music: [
+    { domain: 'kley-zemer.co.il', label: 'כלי זמר' },
+    { domain: 'musical.org.il', label: 'קורל מוזיקה' },
+  ],
+  performances: [
+    { domain: 'eventim.co.il', label: 'Eventim' },
+    { domain: 'leaan.co.il', label: 'לאן' },
+  ],
+  art: [
+    { domain: 'graphos.co.il', label: 'גרפוס' },
+    { domain: 'artpunto.co.il', label: 'Artpunto' },
+  ],
+  culinary: [
+    { domain: 'cookstore.co.il', label: 'The Cook Store' },
+    { domain: 'buyme.co.il', label: 'BUYME' },
+  ],
+  travel: [
+    { domain: 'buyme.co.il', label: 'BUYME' },
+    { domain: 'groupon.co.il', label: 'Groupon Israel' },
+  ],
+  extreme: [
+    { domain: 'buyme.co.il', label: 'BUYME' },
+    { domain: 'giftush.co.il', label: 'גיפטוש' },
+  ],
+  workshops: [
+    { domain: 'giftush.co.il', label: 'גיפטוש' },
+    { domain: 'kolsadna.co.il', label: 'כל סדנה' },
+  ],
+  tech: [
+    { domain: 'ksp.co.il', label: 'KSP' },
+    { domain: 'zap.co.il', label: 'ZAP' },
+    { domain: 'bug.co.il', label: 'BUG' },
+    { domain: 'ivory.co.il', label: 'Ivory' },
+  ],
+  books: [
+    { domain: 'steimatzky.co.il', label: 'סטימצקי' },
+    { domain: 'booknet.co.il', label: 'צומת ספרים' },
+  ],
+  gaming: [
+    { domain: 'bug.co.il', label: 'BUG' },
+    { domain: 'genesisgames.co.il', label: 'Genesis Games' },
+  ],
+  general: [
+    { domain: 'amazon.com', label: 'Amazon' },
+    { domain: 'castro.co.il', label: 'Castro' },
+    { domain: 'magnolia.co.il', label: 'Magnolia' },
+    { domain: 'fox.co.il', label: 'Fox' },
+    { domain: 'terminalx.com', label: 'Terminal X' },
+  ],
+};
 
 interface RawDeal {
   title: string;
@@ -79,20 +121,24 @@ async function resolveFinalUrl(url: string): Promise<string | null> {
   }
 }
 
-async function searchSiteForDeals(site: { domain: string; label: string }): Promise<RawDeal[]> {
+async function searchSiteForCategoryDeals(site: SiteRef, category: CatalogTag): Promise<RawDeal[]> {
+  const categoryLabel = TAG_LABEL_HE[category];
+  const categoryLine = category === 'general'
+    ? 'אתה מחפש מבצעים כלליים (לא ספציפיים לתחום עניין אחד) — כל תחום סביר.'
+    : `אתה מחפש ספציפית מבצעים בתחום "${categoryLabel}" — התעלם ממבצעים באתר שלא שייכים לתחום הזה, גם אם הם משמעותיים.`;
+
   const prompt = `
 חפש בגוגל מבצעים/הנחות פעילים באתר ${site.label} (${site.domain}), ואז השתמש בכלי url_context כדי לפתוח בפועל את הקישורים שמצאת ולוודא שהם עובדים ומראים מוצר אמיתי במבצע — לא רק להסתמך על תוצאת החיפוש.
-מצא עד 5-8 מבצעים/הנחות משמעותיים (אחוז הנחה גבוה במיוחד, לא מחיר קבוע רגיל) — **רק על מוצרים שהגיוני לתת כמתנה לבן אדם אחר**. דלג על מוצרים שהם רכיבים/אביזרים/מוצרי-צריכה שגרתיים (מטענים, כבלים, סוללות גיבוי, מכשירי חשמל ביתיים בסיסיים כמו כירות/מאווררים, חלקי חילוף) — גם אם ההנחה עליהם גבוהה. מתנה טובה היא מוצר שיש לו ערך רגשי/חוויתי/אישי, לא מוצר-מדף שימושי גרידא.
+${categoryLine}
+מצא עד 5 מבצעים/הנחות משמעותיים (אחוז הנחה גבוה במיוחד, לא מחיר קבוע רגיל) — **רק על מוצרים שהגיוני לתת כמתנה לבן אדם אחר**. דלג על מוצרים שהם רכיבים/אביזרים/מוצרי-צריכה שגרתיים (מטענים, כבלים, סוללות גיבוי, מכשירי חשמל ביתיים בסיסיים כמו כירות/מאווררים, חלקי חילוף) — גם אם ההנחה עליהם גבוהה. מתנה טובה היא מוצר שיש לו ערך רגשי/חוויתי/אישי, לא מוצר-מדף שימושי גרידא.
 
 חשוב מאוד:
 - ה-source_url חייב להיות קישור אמיתי שקיבלת מתוצאות חיפוש או מ-url_context — אל תמציא קישורים ואל תנחש URL שלא הופיע בתוצאות אמיתיות. אם יש לך את הכתובת הישירה בדומיין ${site.domain} עצמו (למשל מ-retrievedUrl של url_context) עדיף להשתמש בה; אם לא, קישור תוצאת חיפוש (גם אם הוא redirect) בסדר — הוא ייפתר בצד השרת.
 - כל מבצע שאתה כולל בתשובה חייב להיות מגובה בקישור שבדקת בפועל עם url_context ואישרת שהוא נטען בהצלחה ומראה מידע רלוונטי על מבצעים באתר ${site.domain}.
 - אם קישור מסוים נכשל, מחזיר 404, או שאינך מצליח לאמת אותו — פשוט דלג על אותו מבצע ונסה קישור אחר מהתוצאות. אל תסביר את זה בתשובה, ואל תיתקע בניסיונות חוזרים על אותו URL.
-- אם בסופו של דבר לא נשאר אף מבצע מאומת באתר הזה, זה תקין — החזר "deals": [] .
+- אם בסופו של דבר לא נשאר אף מבצע מאומת באתר הזה בתחום הזה, זה תקין — החזר "deals": [] .
 - התשובה הסופית שלך חייבת להיות אך ורק בלוק ה-JSON, בלי שום טקסט הסבר, נימוק, התנצלות, או תיאור התהליך לפני או אחרי ה-JSON.
-
-רשימת התגיות המותרת (בחר 1-2 שבאמת מתאימות למוצר, מהרשימה הזו בלבד):
-${MASTER_TAG_LIST.join(', ')}, general
+- שדה "tags" בכל מבצע חייב להכיל את "${category}" (התחום שאתה מחפש בו כרגע), ואפשר עוד תגית אחת נוספת אם ממש רלוונטית, מתוך הרשימה: ${MASTER_TAG_LIST.join(', ')}, general.
 
 החזר JSON בלבד (ללא markdown), במבנה:
 {
@@ -103,7 +149,7 @@ ${MASTER_TAG_LIST.join(', ')}, general
       "source_url": "קישור ישיר לעמוד המוצר, מאומת עם url_context",
       "current_price": 149,
       "original_price": 249,
-      "tags": ["תגית_אחת_או_שתיים"],
+      "tags": ["${category}"],
       "expires_at": "YYYY-MM-DD אם יש תאריך סיום מפורש למבצע, אחרת null"
     }
   ]
@@ -198,47 +244,62 @@ export async function deactivateExpiredDeals(): Promise<void> {
   await supabase.from('deal_alerts').update({ is_active: false }).lt('expires_at', new Date().toISOString()).eq('is_active', true);
 }
 
-export interface FindDealsResult { inserted: number; skipped: number; sitesSearched: number }
+async function logSiteSearch(site: SiteRef, category: CatalogTag, foundCount: number, insertedCount: number, error?: string): Promise<void> {
+  const { error: dbErr } = await supabase.from('deal_site_search_log').insert({
+    site_domain: site.domain, category, found_count: foundCount, inserted_count: insertedCount, error: error ?? null,
+  });
+  if (dbErr) logger.warn('Failed to write site search log', { site: site.domain, category, err: dbErr.message });
+}
+
+export interface FindDealsResult { inserted: number; skipped: number; searchesRun: number }
 
 export async function runFindDeals(): Promise<FindDealsResult> {
   let inserted = 0;
   let skipped = 0;
+  let searchesRun = 0;
 
-  for (const site of ALLOWED_SITES) {
-    let deals: RawDeal[];
-    try {
-      deals = await searchSiteForDeals(site);
-    } catch (err) {
-      logger.error('Deal search failed for site', { site: site.domain, err: (err as Error).message });
-      continue;
-    }
-
-    for (const deal of deals) {
-      let url = normalizeUrl(deal.source_url);
-      let resolvedSourceUrl = deal.source_url;
-      if (url && url.hostname === 'vertexaisearch.cloud.google.com') {
-        const resolved = await resolveFinalUrl(deal.source_url);
-        url = resolved ? normalizeUrl(resolved) : null;
-        if (resolved) resolvedSourceUrl = resolved;
-      }
-      // Enforced, not just prompted — reject anything not actually hosted on the requested domain.
-      if (!url || !(url.hostname === site.domain || url.hostname.endsWith(`.${site.domain}`)) || deal.current_price == null) {
-        skipped++;
+  for (const category of Object.keys(CATEGORY_SITES) as CatalogTag[]) {
+    for (const site of CATEGORY_SITES[category]) {
+      searchesRun++;
+      let deals: RawDeal[];
+      try {
+        deals = await searchSiteForCategoryDeals(site, category);
+      } catch (err) {
+        logger.error('Deal search failed for site', { site: site.domain, category, err: (err as Error).message });
+        await logSiteSearch(site, category, 0, 0, (err as Error).message);
         continue;
       }
 
-      const outcome = await insertValidatedDeal({
-        title: deal.title, description: deal.description, source_site: site.domain, source_url: resolvedSourceUrl,
-        image_url: deal.image_url, current_price: deal.current_price, original_price: deal.original_price,
-        tags: deal.tags ?? [], expires_at: deal.expires_at,
-      });
-      if (outcome.ok) inserted++;
-      else { logger.warn('Skipped deal', { site: site.domain, reason: outcome.reason }); skipped++; }
+      let siteInserted = 0;
+      for (const deal of deals) {
+        let url = normalizeUrl(deal.source_url);
+        let resolvedSourceUrl = deal.source_url;
+        if (url && url.hostname === 'vertexaisearch.cloud.google.com') {
+          const resolved = await resolveFinalUrl(deal.source_url);
+          url = resolved ? normalizeUrl(resolved) : null;
+          if (resolved) resolvedSourceUrl = resolved;
+        }
+        // Enforced, not just prompted — reject anything not actually hosted on the requested domain.
+        if (!url || !(url.hostname === site.domain || url.hostname.endsWith(`.${site.domain}`)) || deal.current_price == null) {
+          skipped++;
+          continue;
+        }
+
+        const outcome = await insertValidatedDeal({
+          title: deal.title, description: deal.description, source_site: site.domain, source_url: resolvedSourceUrl,
+          image_url: deal.image_url, current_price: deal.current_price, original_price: deal.original_price,
+          tags: Array.from(new Set([category, ...(deal.tags ?? [])])), expires_at: deal.expires_at,
+        });
+        if (outcome.ok) { inserted++; siteInserted++; }
+        else { logger.warn('Skipped deal', { site: site.domain, category, reason: outcome.reason }); skipped++; }
+      }
+
+      await logSiteSearch(site, category, deals.length, siteInserted);
     }
   }
 
   await deactivateExpiredDeals();
 
-  logger.info('Deal search done', { inserted, skipped, sitesSearched: ALLOWED_SITES.length });
-  return { inserted, skipped, sitesSearched: ALLOWED_SITES.length };
+  logger.info('Deal search done', { inserted, skipped, searchesRun });
+  return { inserted, skipped, searchesRun };
 }

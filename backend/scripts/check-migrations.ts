@@ -33,6 +33,7 @@ const CHECKS: Check[] = [
   { migration: 'v20', label: 'event_audience (table)', table: 'event_audience' },
   { migration: 'v21', label: 'deal_alerts (table)', table: 'deal_alerts' },
   { migration: 'v22', label: 'good_gifts_catalog.source_url', table: 'good_gifts_catalog', column: 'source_url' },
+  { migration: 'v23', label: 'deal_site_search_log (table)', table: 'deal_site_search_log', column: 'site_domain' },
 ];
 
 async function main() {

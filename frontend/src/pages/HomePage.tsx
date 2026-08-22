@@ -171,6 +171,10 @@ export default function HomePage() {
                         {forEventText}
                       </div>
                       <div className="home-deal-title">{m.deal.title}</div>
+                      <div className="home-deal-category">
+                        <span className="home-deal-category-badge">{m.category_label}</span>
+                        <span className="home-deal-reason">{m.match_reason}</span>
+                      </div>
                       <div className="home-deal-pricing">
                         {m.deal.current_price != null && <span className="current-price">₪{m.deal.current_price}</span>}
                         {m.deal.original_price != null && <span className="original-price">₪{m.deal.original_price}</span>}

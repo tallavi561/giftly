@@ -17,6 +17,14 @@ export type InterestTag = typeof MASTER_TAG_LIST[number];
 // but never user-selectable as an interest.
 export type CatalogTag = InterestTag | 'general';
 
+// Hebrew display label per tag — single source of truth for anywhere a tag
+// needs to be shown to a user (deal cards, catalog prompts, etc).
+export const TAG_LABEL_HE: Record<CatalogTag, string> = {
+  sports: 'ספורט', music: 'נגינה', performances: 'הופעות/סטנדאפ', art: 'ציור/אומנות',
+  culinary: 'קפה/קולינריה', travel: 'טיולים/טבע', extreme: 'אקסטרים', workshops: 'סדנאות/זוגיות',
+  tech: 'טכנולוגיה/גאדטים', books: 'ספרים/ידע', gaming: 'גיימינג', general: 'כללי',
+};
+
 export type FeedbackReason = 'WRONG_CONCEPT' | 'WRONG_PRODUCT' | 'TOO_GENERIC';
 export type RecommendationSource = 'gemini' | 'compute';
 

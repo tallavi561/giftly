@@ -304,10 +304,10 @@ router.get('/compute-neighbors', async (req: Request, res: Response) => {
 // see dealFinder.ts. Not run automatically by anything except the schedule
 // below — each run costs real Gemini quota (search grounding) and writes
 // real rows, so it's deliberately not something the agent triggers itself.
-export async function runFindDeals(): Promise<{ inserted: number; skipped: number; sitesSearched: number; alreadyRan?: boolean }> {
+export async function runFindDeals(): Promise<{ inserted: number; skipped: number; searchesRun: number; alreadyRan?: boolean }> {
   if (await hasRunToday('find_deals')) {
     logger.info('Deal-finder cron already ran today');
-    return { inserted: 0, skipped: 0, sitesSearched: 0, alreadyRan: true };
+    return { inserted: 0, skipped: 0, searchesRun: 0, alreadyRan: true };
   }
   const result = await runFindDealsJob();
   await recordRun('find_deals', { ...result });

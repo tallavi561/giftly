@@ -3,7 +3,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { supabaseForUser } from '../lib/supabase.js';
 import { loadEffectiveContext } from '../services/contactRecommendationBatch.js';
 import { Logger } from '../lib/logger.js';
-import type { AuthRequest, DealAlert } from '../types/index.js';
+import type { AuthRequest, DealAlert, CatalogTag } from '../types/index.js';
+import { TAG_LABEL_HE } from '../types/index.js';
 
 const router = Router();
 const logger = new Logger('deals');
@@ -15,6 +16,22 @@ export interface MatchedDeal {
   contact_id: string;
   contact_name: string;
   matched_tags: string[];
+  category_label: string; // Hebrew label for the tag the deal matched on — "כללי" if only 'general' matched
+  match_reason: string; // short human-readable "why this deal" sentence
+}
+
+// Picks which of the deal's matched tags to surface as "the" category: the
+// first non-general one if any actually matched the contact's interests,
+// otherwise 'general' — matches the user's ask to always label a deal, and
+// to write "כללי" explicitly rather than leaving it blank.
+function pickDisplayCategory(matchedTags: string[]): CatalogTag {
+  const specific = matchedTags.find(t => t !== 'general') as CatalogTag | undefined;
+  return specific ?? 'general';
+}
+
+function buildMatchReason(category: CatalogTag, contactName: string): string {
+  if (category === 'general') return 'מבצע כללי';
+  return `נבחר כי ${TAG_LABEL_HE[category]} מתאים לתחומי העניין של ${contactName}`;
 }
 
 // GET /api/deals/for-me — active deals matched to the caller's own contacts
@@ -36,22 +53,31 @@ router.get('/for-me', requireAuth, async (req: Request, res: Response) => {
     const ctx = await loadEffectiveContext(db, contact);
     if (ctx.cleanInterests.length === 0) continue;
 
+    // 'general' is never a selectable interest, so it's added here only to
+    // let general-tagged deals through the overlap filter — matched_tags
+    // below still checks against the real interests only, so a deal that
+    // only matched via 'general' correctly ends up with no specific match.
     const { data: deals, error: de } = await db
       .from('deal_alerts')
       .select('*')
       .eq('is_active', true)
       .gt('expires_at', now)
-      .overlaps('tags', ctx.cleanInterests)
+      .overlaps('tags', [...ctx.cleanInterests, 'general'])
       .order('discount_pct', { ascending: false })
       .limit(5);
     if (de) { logger.error('Match deals failed', { contact_id: contact.id, error: de }); continue; }
 
+    const contactName = contact.user_profile?.display_name ?? contact.name;
     for (const deal of (deals ?? []) as DealAlert[]) {
+      const matched_tags = deal.tags.filter(t => ctx.cleanInterests.includes(t));
+      const category = pickDisplayCategory(matched_tags);
       matches.push({
         deal,
         contact_id: contact.id,
-        contact_name: contact.user_profile?.display_name ?? contact.name,
-        matched_tags: deal.tags.filter(t => ctx.cleanInterests.includes(t)),
+        contact_name: contactName,
+        matched_tags,
+        category_label: TAG_LABEL_HE[category],
+        match_reason: buildMatchReason(category, contactName),
       });
     }
   }

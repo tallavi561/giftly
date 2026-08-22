@@ -16,6 +16,7 @@ import 'dotenv/config';
 import { readFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { MASTER_TAG_LIST } from '../src/types/index.js';
+import { isGiftAppropriate } from '../src/services/giftAppropriateness.js';
 import { logScriptOutput } from './lib/scriptOutput.js';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -55,6 +56,9 @@ async function main() {
 
     const tags = (gift.tags ?? []).filter(t => VALID_TAGS.has(t));
     if (tags.length === 0) { console.log(`  skip (no valid tags): ${gift.title}`); skipped++; continue; }
+
+    const appropriateness = await isGiftAppropriate(gift.title, gift.description);
+    if (!appropriateness.ok) { console.log(`  skip (not gift-appropriate: ${appropriateness.reason}): ${gift.title}`); skipped++; continue; }
 
     const { data: row, error } = await supabase.from('good_gifts_catalog').insert({
       title: gift.title, description: gift.description ?? null, estimated_price: gift.estimated_price,
