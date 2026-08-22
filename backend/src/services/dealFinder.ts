@@ -62,10 +62,32 @@ function normalizeUrl(url: string): URL | null {
   try { return new URL(url); } catch { return null; }
 }
 
+// The model reliably cites Google's search-grounding redirect link
+// (vertexaisearch.cloud.google.com/grounding-api-redirect/...) as source_url
+// even when instructed to give the real destination — so resolve it
+// server-side instead of trusting the model's copy of the final URL.
+async function resolveFinalUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { redirect: 'follow' });
+    await res.body?.cancel();
+    return res.url || null;
+  } catch (err) {
+    logger.warn('Failed to resolve redirect', { url, err: (err as Error).message });
+    return null;
+  }
+}
+
 async function searchSiteForDeals(site: { domain: string; label: string }): Promise<RawDeal[]> {
   const prompt = `
-חפש באינטרנט, אך ורק באתר ${site.label} (${site.domain}), 5-8 מבצעים/הנחות משמעותיים וזמינים כרגע (אחוז הנחה גבוה במיוחד, לא מחיר קבוע רגיל).
-כל מבצע חייב לכלול קישור אמיתי וישיר לעמוד המוצר באתר ${site.domain} עצמו — אל תמציא קישורים.
+חפש בגוגל מבצעים/הנחות פעילים באתר ${site.label} (${site.domain}), ואז השתמש בכלי url_context כדי לפתוח בפועל את הקישורים שמצאת ולוודא שהם עובדים ומראים מוצר אמיתי במבצע — לא רק להסתמך על תוצאת החיפוש.
+מצא עד 5-8 מבצעים/הנחות משמעותיים (אחוז הנחה גבוה במיוחד, לא מחיר קבוע רגיל).
+
+חשוב מאוד:
+- ה-source_url חייב להיות קישור אמיתי שקיבלת מתוצאות חיפוש או מ-url_context — אל תמציא קישורים ואל תנחש URL שלא הופיע בתוצאות אמיתיות. אם יש לך את הכתובת הישירה בדומיין ${site.domain} עצמו (למשל מ-retrievedUrl של url_context) עדיף להשתמש בה; אם לא, קישור תוצאת חיפוש (גם אם הוא redirect) בסדר — הוא ייפתר בצד השרת.
+- כל מבצע שאתה כולל בתשובה חייב להיות מגובה בקישור שבדקת בפועל עם url_context ואישרת שהוא נטען בהצלחה ומראה מידע רלוונטי על מבצעים באתר ${site.domain}.
+- אם קישור מסוים נכשל, מחזיר 404, או שאינך מצליח לאמת אותו — פשוט דלג על אותו מבצע ונסה קישור אחר מהתוצאות. אל תסביר את זה בתשובה, ואל תיתקע בניסיונות חוזרים על אותו URL.
+- אם בסופו של דבר לא נשאר אף מבצע מאומת באתר הזה, זה תקין — החזר "deals": [] .
+- התשובה הסופית שלך חייבת להיות אך ורק בלוק ה-JSON, בלי שום טקסט הסבר, נימוק, התנצלות, או תיאור התהליך לפני או אחרי ה-JSON.
 
 רשימת התגיות המותרת (בחר 1-2 שבאמת מתאימות למוצר, מהרשימה הזו בלבד):
 ${MASTER_TAG_LIST.join(', ')}, general
@@ -76,7 +98,7 @@ ${MASTER_TAG_LIST.join(', ')}, general
     {
       "title": "שם המוצר",
       "description": "תיאור קצר",
-      "source_url": "קישור ישיר לעמוד המוצר",
+      "source_url": "קישור ישיר לעמוד המוצר, מאומת עם url_context",
       "current_price": 149,
       "original_price": 249,
       "tags": ["תגית_אחת_או_שתיים"],
@@ -91,7 +113,8 @@ ${MASTER_TAG_LIST.join(', ')}, general
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      tools: [{ google_search: {} }],
+      tools: [{ google_search: {} }, { url_context: {} }],
+      generationConfig: { maxOutputTokens: 4096 },
     }),
   });
 
@@ -102,14 +125,58 @@ ${MASTER_TAG_LIST.join(', ')}, general
 
   const data = await res.json() as any;
   const text: string = (data.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1) {
+  const jsonSlice = extractBalancedJsonObject(text);
+  if (!jsonSlice) {
     logger.warn('No JSON found in deal search response', { site: site.domain });
     return [];
   }
-  const parsed = JSON.parse(text.slice(start, end + 1)) as { deals?: RawDeal[] };
-  return parsed.deals ?? [];
+  try {
+    const parsed = JSON.parse(escapeStringControlChars(jsonSlice)) as { deals?: RawDeal[] };
+    return parsed.deals ?? [];
+  } catch (err) {
+    logger.warn('Malformed JSON in deal search response', { site: site.domain, err: (err as Error).message });
+    return [];
+  }
+}
+
+// text.indexOf('{')..lastIndexOf('}') breaks when the model adds any trailing
+// content after the JSON block (which also happens to contain a '}') — walk
+// brace depth instead, ignoring braces inside quoted strings, to find the
+// end of the first complete top-level object.
+function extractBalancedJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0, inString = false, escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+  }
+  return null;
+}
+
+// Models occasionally emit raw control characters (literal newlines/tabs)
+// inside JSON string values instead of escaping them, which is technically
+// invalid JSON — escape any control char found between unescaped quotes.
+function escapeStringControlChars(json: string): string {
+  let out = '', inString = false, escape = false;
+  for (const ch of json) {
+    if (escape) { out += ch; escape = false; continue; }
+    if (ch === '\\') { out += ch; escape = true; continue; }
+    if (ch === '"') { inString = !inString; out += ch; continue; }
+    if (inString && ch.charCodeAt(0) < 0x20) {
+      if (ch === '\n') out += '\\n';
+      else if (ch === '\t') out += '\\t';
+      else if (ch === '\r') out += '\\r';
+      continue;
+    }
+    out += ch;
+  }
+  return out;
 }
 
 function validateTags(tags: string[] | undefined): string[] {
@@ -188,7 +255,13 @@ export async function runFindDeals(): Promise<FindDealsResult> {
     }
 
     for (const deal of deals) {
-      const url = normalizeUrl(deal.source_url);
+      let url = normalizeUrl(deal.source_url);
+      let resolvedSourceUrl = deal.source_url;
+      if (url && url.hostname === 'vertexaisearch.cloud.google.com') {
+        const resolved = await resolveFinalUrl(deal.source_url);
+        url = resolved ? normalizeUrl(resolved) : null;
+        if (resolved) resolvedSourceUrl = resolved;
+      }
       // Enforced, not just prompted — reject anything not actually hosted on the requested domain.
       if (!url || !(url.hostname === site.domain || url.hostname.endsWith(`.${site.domain}`)) || deal.current_price == null) {
         skipped++;
@@ -196,7 +269,7 @@ export async function runFindDeals(): Promise<FindDealsResult> {
       }
 
       const outcome = await insertValidatedDeal({
-        title: deal.title, description: deal.description, source_site: site.domain, source_url: deal.source_url,
+        title: deal.title, description: deal.description, source_site: site.domain, source_url: resolvedSourceUrl,
         image_url: deal.image_url, current_price: deal.current_price, original_price: deal.original_price,
         tags: deal.tags ?? [], expires_at: deal.expires_at,
       });
