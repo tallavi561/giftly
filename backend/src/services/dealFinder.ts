@@ -17,6 +17,8 @@
 import { supabase } from '../lib/supabase.js';
 import { Logger } from '../lib/logger.js';
 import { MASTER_TAG_LIST } from '../types/index.js';
+import { parseJsonObjectLoose } from '../lib/jsonExtract.js';
+import { isGiftAppropriate } from './giftAppropriateness.js';
 
 const logger = new Logger('dealFinder');
 
@@ -80,7 +82,7 @@ async function resolveFinalUrl(url: string): Promise<string | null> {
 async function searchSiteForDeals(site: { domain: string; label: string }): Promise<RawDeal[]> {
   const prompt = `
 חפש בגוגל מבצעים/הנחות פעילים באתר ${site.label} (${site.domain}), ואז השתמש בכלי url_context כדי לפתוח בפועל את הקישורים שמצאת ולוודא שהם עובדים ומראים מוצר אמיתי במבצע — לא רק להסתמך על תוצאת החיפוש.
-מצא עד 5-8 מבצעים/הנחות משמעותיים (אחוז הנחה גבוה במיוחד, לא מחיר קבוע רגיל).
+מצא עד 5-8 מבצעים/הנחות משמעותיים (אחוז הנחה גבוה במיוחד, לא מחיר קבוע רגיל) — **רק על מוצרים שהגיוני לתת כמתנה לבן אדם אחר**. דלג על מוצרים שהם רכיבים/אביזרים/מוצרי-צריכה שגרתיים (מטענים, כבלים, סוללות גיבוי, מכשירי חשמל ביתיים בסיסיים כמו כירות/מאווררים, חלקי חילוף) — גם אם ההנחה עליהם גבוהה. מתנה טובה היא מוצר שיש לו ערך רגשי/חוויתי/אישי, לא מוצר-מדף שימושי גרידא.
 
 חשוב מאוד:
 - ה-source_url חייב להיות קישור אמיתי שקיבלת מתוצאות חיפוש או מ-url_context — אל תמציא קישורים ואל תנחש URL שלא הופיע בתוצאות אמיתיות. אם יש לך את הכתובת הישירה בדומיין ${site.domain} עצמו (למשל מ-retrievedUrl של url_context) עדיף להשתמש בה; אם לא, קישור תוצאת חיפוש (גם אם הוא redirect) בסדר — הוא ייפתר בצד השרת.
@@ -125,58 +127,12 @@ ${MASTER_TAG_LIST.join(', ')}, general
 
   const data = await res.json() as any;
   const text: string = (data.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
-  const jsonSlice = extractBalancedJsonObject(text);
-  if (!jsonSlice) {
-    logger.warn('No JSON found in deal search response', { site: site.domain });
+  const parsed = parseJsonObjectLoose<{ deals?: RawDeal[] }>(text);
+  if (!parsed) {
+    logger.warn('No/malformed JSON in deal search response', { site: site.domain });
     return [];
   }
-  try {
-    const parsed = JSON.parse(escapeStringControlChars(jsonSlice)) as { deals?: RawDeal[] };
-    return parsed.deals ?? [];
-  } catch (err) {
-    logger.warn('Malformed JSON in deal search response', { site: site.domain, err: (err as Error).message });
-    return [];
-  }
-}
-
-// text.indexOf('{')..lastIndexOf('}') breaks when the model adds any trailing
-// content after the JSON block (which also happens to contain a '}') — walk
-// brace depth instead, ignoring braces inside quoted strings, to find the
-// end of the first complete top-level object.
-function extractBalancedJsonObject(text: string): string | null {
-  const start = text.indexOf('{');
-  if (start === -1) return null;
-  let depth = 0, inString = false, escape = false;
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === '\\') { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '{') depth++;
-    else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
-  }
-  return null;
-}
-
-// Models occasionally emit raw control characters (literal newlines/tabs)
-// inside JSON string values instead of escaping them, which is technically
-// invalid JSON — escape any control char found between unescaped quotes.
-function escapeStringControlChars(json: string): string {
-  let out = '', inString = false, escape = false;
-  for (const ch of json) {
-    if (escape) { out += ch; escape = false; continue; }
-    if (ch === '\\') { out += ch; escape = true; continue; }
-    if (ch === '"') { inString = !inString; out += ch; continue; }
-    if (inString && ch.charCodeAt(0) < 0x20) {
-      if (ch === '\n') out += '\\n';
-      else if (ch === '\t') out += '\\t';
-      else if (ch === '\r') out += '\\r';
-      continue;
-    }
-    out += ch;
-  }
-  return out;
+  return parsed.deals ?? [];
 }
 
 function validateTags(tags: string[] | undefined): string[] {
@@ -208,6 +164,9 @@ export async function insertValidatedDeal(input: DealInput): Promise<InsertOutco
 
   const tags = validateTags(input.tags);
   if (tags.length === 0) return { ok: false, reason: 'no tags from the Master Tag List' };
+
+  const appropriateness = await isGiftAppropriate(input.title, input.description);
+  if (!appropriateness.ok) return { ok: false, reason: `not gift-appropriate: ${appropriateness.reason ?? 'no reason given'}` };
 
   const discountPct = input.original_price && input.original_price > input.current_price
     ? Math.round((1 - input.current_price / input.original_price) * 100)
