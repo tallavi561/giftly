@@ -15,3 +15,6 @@ dbpassword.txt
 .claude/
 giftly-frontend.env
 ./input_gifts
+
+# per-run script output logs (backend/scripts/*.sh, *.ts)
+backend/scripts/SCRIPTS-OUTPUT/

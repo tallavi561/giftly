@@ -9,6 +9,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/../.env"
 
+# Mirror all output below to SCRIPTS-OUTPUT/<script-name>/<run timestamp>.txt,
+# in addition to the terminal, so every run leaves a record on disk.
+OUT_DIR="$SCRIPT_DIR/SCRIPTS-OUTPUT/generate-self-recs"
+mkdir -p "$OUT_DIR"
+exec > >(tee "$OUT_DIR/$(date +%Y-%m-%d_%H-%M-%S).txt") 2>&1
+
 if [ ! -f "$ENV_FILE" ]; then
   echo "Can't find $ENV_FILE" >&2
   exit 1

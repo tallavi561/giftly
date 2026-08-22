@@ -16,6 +16,7 @@ import 'dotenv/config';
 import { readFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { MASTER_TAG_LIST } from '../src/types/index.js';
+import { logScriptOutput } from './lib/scriptOutput.js';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const VALID_TAGS = new Set<string>([...MASTER_TAG_LIST, 'general']);
@@ -35,6 +36,7 @@ function normalizeTitle(title: string): string {
 }
 
 async function main() {
+  logScriptOutput('insertManualGifts');
   const path = process.argv[2] ?? 'scripts/manual-gifts.json';
   console.log(`Reading gifts from ${path}...`);
 

@@ -17,8 +17,10 @@
 import 'dotenv/config';
 import { readFileSync } from 'fs';
 import { insertValidatedDeal, deactivateExpiredDeals, type DealInput } from '../src/services/dealFinder.js';
+import { logScriptOutput } from './lib/scriptOutput.js';
 
 async function main() {
+  logScriptOutput('insertManualDeals');
   const path = process.argv[2] ?? 'scripts/manual-deals.json';
   console.log(`Reading deals from ${path}...`);
 

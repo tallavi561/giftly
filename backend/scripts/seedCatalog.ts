@@ -17,6 +17,7 @@ import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { MASTER_TAG_LIST } from '../src/types/index.js';
+import { logScriptOutput } from './lib/scriptOutput.js';
 
 const ITEMS_PER_TAG = 25; // 11 interest tags + general = 12 * 25 = 300
 const ALL_TAGS = [...MASTER_TAG_LIST, 'general'] as const;
@@ -78,6 +79,7 @@ ${ALL_TAGS.join(', ')}
 }
 
 async function main() {
+  logScriptOutput('seedCatalog');
   console.log(`Seeding ~${ITEMS_PER_TAG * ALL_TAGS.length} catalog items across ${ALL_TAGS.length} tags...`);
 
   const { data: existing } = await supabase.from('good_gifts_catalog').select('title');
