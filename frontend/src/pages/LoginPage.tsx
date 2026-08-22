@@ -6,7 +6,7 @@ import { Logger } from '../lib/logger.js';
 const logger = new Logger('LoginPage');
 
 export default function LoginPage() {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, signOut, resetPassword } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +33,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     const fn = mode === 'login' ? signIn : signUp;
-    const { error: err } = await fn(email, password);
+    const { data, error: err } = await fn(email, password);
     setLoading(false);
     if (err) {
       logger.warn('Auth failed', { mode, error: err.message });
@@ -42,6 +42,12 @@ export default function LoginPage() {
     }
     if (mode === 'signup') {
       setError('נשלח מייל אימות — בדוק את תיבת הדואר שלך');
+      return;
+    }
+    if (data.user && !data.user.email_confirmed_at) {
+      logger.warn('Sign-in blocked: email not confirmed', { userId: data.user.id });
+      await signOut();
+      setError('יש לאשר את כתובת המייל לפני ההתחברות — בדוק את תיבת הדואר שלך');
       return;
     }
     logger.info('Logged in successfully');

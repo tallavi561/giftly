@@ -16,18 +16,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Supabase can issue a valid session for an unconfirmed address (e.g. if the
+// project's "Confirm email" setting is off) — never treat that as logged in.
+function confirmedUser(user: User | null | undefined): User | null {
+  if (!user || !user.email_confirmed_at) return null;
+  return user;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+      setUser(confirmedUser(data.session?.user));
       setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       logger.info('Auth state changed', { event: _e, userId: session?.user?.id });
-      setUser(session?.user ?? null);
+      setUser(confirmedUser(session?.user));
     });
     return () => subscription.unsubscribe();
   }, []);

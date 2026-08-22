@@ -20,6 +20,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
+  if (!data.user.email_confirmed_at) {
+    logger.warn('Unconfirmed email attempted access', { path: req.path, userId: data.user.id });
+    res.status(403).json({ error: 'Email not confirmed' });
+    return;
+  }
+
   (req as any).user = data.user;
   (req as any).token = token;
   next();
