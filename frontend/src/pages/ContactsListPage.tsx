@@ -176,9 +176,6 @@ export default function ContactsListPage() {
 
   const headerExtra = (
     <>
-      <button className="icon-btn" onClick={() => navigate('/groups')} title="קבוצות">
-        <span className="material-symbols-outlined">groups</span>
-      </button>
       <button className="icon-btn" onClick={openHistory} title="היסטוריה">
         <span className="material-symbols-outlined">history</span>
       </button>
