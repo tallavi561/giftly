@@ -216,6 +216,7 @@ export interface DealAlert {
   original_price: number | null;
   discount_pct: number | null;
   tags: string[];
+  target_gender: 'male' | 'female' | 'unisex';
   found_at: string;
   expires_at: string;
   is_active: boolean;
