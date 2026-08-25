@@ -34,6 +34,7 @@ const CHECKS: Check[] = [
   { migration: 'v21', label: 'deal_alerts (table)', table: 'deal_alerts' },
   { migration: 'v22', label: 'good_gifts_catalog.source_url', table: 'good_gifts_catalog', column: 'source_url' },
   { migration: 'v23', label: 'deal_site_search_log (table)', table: 'deal_site_search_log', column: 'site_domain' },
+  { migration: 'v24', label: 'deal_alerts.target_gender', table: 'deal_alerts', column: 'target_gender' },
 ];
 
 async function main() {
