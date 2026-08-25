@@ -109,8 +109,7 @@ export interface DealAlert {
 
 export interface MatchedDeal {
   deal: DealAlert;
-  contact_id: string;
-  contact_name: string;
+  contacts: { contact_id: string; contact_name: string }[];
   matched_tags: string[];
   category_label: string;
   match_reason: string;

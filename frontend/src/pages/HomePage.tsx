@@ -159,10 +159,16 @@ export default function HomePage() {
               </div>
               <div className="home-deals-scroll">
                 {deals.map(m => {
-                  const upcomingForContact = upcomingByContact.get(m.contact_id);
+                  // Only try to attach a specific "for X's birthday" event
+                  // when the deal matched exactly one contact — once it's
+                  // matched to several (e.g. two contacts who both like
+                  // books), picking one contact's event to headline would be
+                  // arbitrary, so just list everyone it's relevant to.
+                  const namesText = m.contacts.map(c => c.contact_name).join(', ');
+                  const upcomingForContact = m.contacts.length === 1 ? upcomingByContact.get(m.contacts[0].contact_id) : undefined;
                   const forEventText = upcomingForContact
-                    ? `${upcomingForContact.type} ל${m.contact_name} (${formatDealTiming(upcomingForContact.days)})`
-                    : m.contact_name;
+                    ? `${upcomingForContact.type} ל${namesText} (${formatDealTiming(upcomingForContact.days)})`
+                    : namesText;
                   return (
                     <a key={m.deal.id} className="home-deal-card" href={m.deal.source_url} target="_blank" rel="noreferrer">
                       {m.deal.discount_pct != null && <span className="home-deal-badge">{m.deal.discount_pct}%-</span>}
