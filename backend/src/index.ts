@@ -9,7 +9,7 @@ import giftsRouter from './routes/gifts.js';
 import recommendationsRouter from './routes/recommendations.js';
 import contactRequestsRouter from './routes/contactRequests.js';
 import selfRecommendationsRouter from './routes/selfRecommendations.js';
-import cronRouter, { runReminders, runSecondChance, runComputeGiftNeighbors, runFindDeals } from './routes/cron.js';
+import cronRouter, { runReminders, runSecondChance, runComputeGiftNeighbors, runFindDeals, runVerifyDealLinks } from './routes/cron.js';
 import dealsRouter from './routes/deals.js';
 import hostedEventsRouter from './routes/hostedEvents.js';
 import groupsRouter from './routes/groups.js';
@@ -77,5 +77,13 @@ app.listen(PORT, () => {
   cron.schedule(findDealsCronExpr, () => {
     logger.info('Scheduled deal-finder cron triggered');
     runFindDeals().catch(err => logger.error('Deal-finder cron failed', err));
+  }, { timezone: 'Asia/Jerusalem' });
+
+  // Daily — cheap (plain fetch, no Gemini quota) so unlike find-deals this
+  // runs every day, not twice a week. Offset from the other 7/8/9am jobs.
+  const verifyDealLinksCronExpr = process.env.VERIFY_DEAL_LINKS_CRON ?? '0 10 * * *';
+  cron.schedule(verifyDealLinksCronExpr, () => {
+    logger.info('Scheduled deal-link verification cron triggered');
+    runVerifyDealLinks().catch(err => logger.error('Deal-link verification cron failed', err));
   }, { timezone: 'Asia/Jerusalem' });
 });

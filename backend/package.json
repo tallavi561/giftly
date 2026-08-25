@@ -8,7 +8,9 @@
     "start": "node dist/index.js",
     "seed:catalog": "tsx scripts/seedCatalog.ts",
     "insert:deals": "tsx scripts/insertManualDeals.ts",
-    "insert:gifts": "tsx scripts/insertManualGifts.ts"
+    "insert:gifts": "tsx scripts/insertManualGifts.ts",
+    "backfill:deal-gender": "tsx scripts/backfillDealGender.ts",
+    "backfill:dead-links": "tsx scripts/deactivateDeadDealLinks.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

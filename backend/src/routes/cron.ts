@@ -4,7 +4,7 @@ import { sendReminderEmail } from '../services/email.js';
 import { Logger } from '../lib/logger.js';
 import { loadEffectiveContext } from '../services/contactRecommendationBatch.js';
 import { applyRatingFeedback } from '../services/catalogFeedback.js';
-import { runFindDeals as runFindDealsJob } from '../services/dealFinder.js';
+import { runFindDeals as runFindDealsJob, runVerifyDealLinks as runVerifyDealLinksJob } from '../services/dealFinder.js';
 
 const router = Router();
 const logger = new Logger('cron');
@@ -319,6 +319,31 @@ router.get('/find-deals', async (req: Request, res: Response) => {
   if (!secret || secret !== process.env.ADMIN_SECRET) return void res.status(401).json({ error: 'Unauthorized' });
   try {
     res.json(await runFindDeals());
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Daily sweep re-checking every currently-active deal's link — a link live
+// when found_at can still go dead later (sale ends, page moves), well
+// within the 10-day default expiry. deals.ts also does a narrower check on
+// just what's about to be shown to one user; this is the broad pass that
+// keeps the whole active set healthy independent of user traffic.
+export async function runVerifyDealLinks(): Promise<{ checked: number; deactivated: number; alreadyRan?: boolean }> {
+  if (await hasRunToday('verify_deal_links')) {
+    logger.info('Deal-link verification cron already ran today');
+    return { checked: 0, deactivated: 0, alreadyRan: true };
+  }
+  const result = await runVerifyDealLinksJob();
+  await recordRun('verify_deal_links', { ...result });
+  return result;
+}
+
+router.get('/verify-deal-links', async (req: Request, res: Response) => {
+  const secret = req.headers['x-admin-secret'];
+  if (!secret || secret !== process.env.ADMIN_SECRET) return void res.status(401).json({ error: 'Unauthorized' });
+  try {
+    res.json(await runVerifyDealLinks());
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

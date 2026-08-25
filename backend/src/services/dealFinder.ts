@@ -106,19 +106,80 @@ function normalizeUrl(url: string): URL | null {
   try { return new URL(url); } catch { return null; }
 }
 
+const URL_CHECK_TIMEOUT_MS = 5000;
+
+async function fetchWithTimeout(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), URL_CHECK_TIMEOUT_MS);
+  try {
+    return await fetch(url, { redirect: 'follow', signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // The model reliably cites Google's search-grounding redirect link
 // (vertexaisearch.cloud.google.com/grounding-api-redirect/...) as source_url
 // even when instructed to give the real destination — so resolve it
 // server-side instead of trusting the model's copy of the final URL.
-async function resolveFinalUrl(url: string): Promise<string | null> {
+//
+// Also doubles as the real liveness check: the prompt tells the model to
+// verify each link with its own url_context tool before citing it, but
+// that's a soft instruction inside the model's own response, not something
+// this code can rely on — the model can still cite a stale/dead link (a
+// sale that ended, a page that moved) with full confidence. Checking res.ok
+// here catches that with a real HTTP status, for every deal, not just
+// grounding-redirect ones.
+async function resolveFinalUrl(url: string): Promise<{ ok: boolean; finalUrl: string | null }> {
   try {
-    const res = await fetch(url, { redirect: 'follow' });
+    const res = await fetchWithTimeout(url);
     await res.body?.cancel();
-    return res.url || null;
+    return { ok: res.ok, finalUrl: res.url || null };
   } catch (err) {
-    logger.warn('Failed to resolve redirect', { url, err: (err as Error).message });
-    return null;
+    logger.warn('Failed to resolve/verify URL', { url, err: (err as Error).message });
+    return { ok: false, finalUrl: null };
   }
+}
+
+// Lightweight liveness-only check (no need for the resolved URL) — a link
+// live at insert time can still go dead later, well within the 10-day
+// default expiry (sale pages especially rot fast). Shared by the periodic
+// sweep below (runVerifyDealLinks) and deals.ts's narrower serve-time check
+// on just what's about to be shown to one user.
+export async function isUrlLive(url: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(url);
+    await res.body?.cancel();
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export interface VerifyLinksResult { checked: number; deactivated: number }
+
+// Broad sweep over every currently-active deal, run on a schedule (cron.ts)
+// so the whole active set stays healthy independent of user traffic —
+// deals.ts's serve-time check only ever verifies the handful of deals about
+// to be shown to one user, so a dead link a user never happens to match
+// would otherwise sit active indefinitely.
+export async function runVerifyDealLinks(): Promise<VerifyLinksResult> {
+  const { data, error } = await supabase.from('deal_alerts').select('id, source_url').eq('is_active', true);
+  if (error) { logger.error('Fetch active deals for link verification failed', error); throw new Error(error.message); }
+
+  let deactivated = 0;
+  for (const deal of data ?? []) {
+    const live = await isUrlLive(deal.source_url);
+    if (!live) {
+      const { error: upErr } = await supabase.from('deal_alerts').update({ is_active: false }).eq('id', deal.id);
+      if (upErr) logger.warn('Failed to deactivate dead deal link', { id: deal.id, err: upErr.message });
+      else deactivated++;
+    }
+  }
+
+  const checked = data?.length ?? 0;
+  logger.info('Deal link verification done', { checked, deactivated });
+  return { checked, deactivated };
 }
 
 async function searchSiteForCategoryDeals(site: SiteRef, category: CatalogTag): Promise<RawDeal[]> {
@@ -232,6 +293,7 @@ export async function insertValidatedDeal(input: DealInput): Promise<InsertOutco
     original_price: input.original_price ?? null,
     discount_pct: discountPct,
     tags,
+    target_gender: appropriateness.targetGender,
     expires_at: expiresAt,
   });
   if (error) return { ok: false, reason: error.message };
@@ -272,13 +334,13 @@ export async function runFindDeals(): Promise<FindDealsResult> {
 
       let siteInserted = 0;
       for (const deal of deals) {
-        let url = normalizeUrl(deal.source_url);
-        let resolvedSourceUrl = deal.source_url;
-        if (url && url.hostname === 'vertexaisearch.cloud.google.com') {
-          const resolved = await resolveFinalUrl(deal.source_url);
-          url = resolved ? normalizeUrl(resolved) : null;
-          if (resolved) resolvedSourceUrl = resolved;
-        }
+        // Every candidate link is fetched and checked for a live (2xx) status
+        // before it's trusted — not just the grounding-redirect ones — since
+        // a direct-domain URL can just as easily be stale (sale ended, page
+        // moved/removed) even though the model cited it with confidence.
+        const { ok: urlLive, finalUrl } = await resolveFinalUrl(deal.source_url);
+        const url = urlLive && finalUrl ? normalizeUrl(finalUrl) : null;
+        const resolvedSourceUrl = finalUrl ?? deal.source_url;
         // Enforced, not just prompted — reject anything not actually hosted on the requested domain.
         if (!url || !(url.hostname === site.domain || url.hostname.endsWith(`.${site.domain}`)) || deal.current_price == null) {
           skipped++;
