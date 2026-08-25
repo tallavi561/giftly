@@ -94,6 +94,7 @@ router.post('/generate', async (_req: Request, res: Response) => {
       interface SelfSuggestionRow {
         user_id: string; title: string; description: string | null; estimated_price: number | null;
         category: string | null; category_tag: string | null; search_query: string | null;
+        source_url: string | null; image_url: string | null;
         gift_id: string | null; batch_id: string;
       }
 
@@ -105,6 +106,8 @@ router.post('/generate', async (_req: Request, res: Response) => {
         category: gift.category,
         category_tag: gift.tags[0] ?? null,
         search_query: gift.search_query,
+        source_url: gift.source_url,
+        image_url: gift.image_url,
         gift_id: gift.id,
         batch_id: batchId,
       }));
@@ -116,6 +119,9 @@ router.post('/generate', async (_req: Request, res: Response) => {
           interests: profile.interests, negative_prefs: profile.negative_prefs,
           bio: profile.bio, city: profile.city, country: profile.country,
         }, plan.geminiCount);
+        // Ungrounded Gemini generation — no verified real link, so never
+        // fabricate a source_url/image_url here (see recommendations.ts for
+        // the same rule on the per-contact side).
         geminiRows = suggestions.map(s => ({
           user_id: profile.user_id,
           title: s.title,
@@ -124,6 +130,8 @@ router.post('/generate', async (_req: Request, res: Response) => {
           category: s.category,
           category_tag: s.category_tag ?? null,
           search_query: s.search_query,
+          source_url: null,
+          image_url: null,
           gift_id: null,
           batch_id: batchId,
         }));

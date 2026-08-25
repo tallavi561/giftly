@@ -14,7 +14,10 @@ interface SelfSuggestion {
   search_query: string | null;
   rating: number | null;
   created_at: string;
-  image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
+  // Both hotlinked straight from the retailer, never downloaded/stored by us —
+  // populated only for catalog-backed suggestions with a real source link.
+  image_url?: string | null;
+  source_url?: string | null;
 }
 
 type FeedbackReason = 'WRONG_CONCEPT' | 'WRONG_PRODUCT' | 'TOO_GENERIC';
@@ -138,7 +141,12 @@ function FeedCard({ s, isActive, onRate }: { s: SelfSuggestion; isActive: boolea
               </div>
             </div>
           )}
-          {s.search_query && (
+          {s.source_url ? (
+            <a className="mg-feed-search" href={s.source_url} target="_blank" rel="noopener noreferrer">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>open_in_new</span>
+              לצפייה במוצר
+            </a>
+          ) : s.search_query && (
             <a
               className="mg-feed-search"
               href={`https://www.google.com/search?q=${encodeURIComponent(s.search_query)}`}

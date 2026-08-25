@@ -17,6 +17,8 @@ import { readFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { MASTER_TAG_LIST } from '../src/types/index.js';
 import { isGiftAppropriate } from '../src/services/giftAppropriateness.js';
+import { isUrlLive } from '../src/services/dealFinder.js';
+import { fetchOgImage } from '../src/lib/ogImage.js';
 import { logScriptOutput } from './lib/scriptOutput.js';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -29,6 +31,7 @@ interface GiftInput {
   category?: string | null;
   search_query?: string | null;
   source_url?: string | null;
+  image_url?: string | null;
   tags: string[];
 }
 
@@ -60,10 +63,18 @@ async function main() {
     const appropriateness = await isGiftAppropriate(gift.title, gift.description);
     if (!appropriateness.ok) { console.log(`  skip (not gift-appropriate: ${appropriateness.reason}): ${gift.title}`); skipped++; continue; }
 
+    // Pull the product photo straight off the real link, when we have one —
+    // never fabricated, never hosted by us (see backend/src/lib/ogImage.ts).
+    let imageUrl = gift.image_url ?? null;
+    if (!imageUrl && gift.source_url) {
+      const found = await fetchOgImage(gift.source_url);
+      imageUrl = found && await isUrlLive(found) ? found : null;
+    }
+
     const { data: row, error } = await supabase.from('good_gifts_catalog').insert({
       title: gift.title, description: gift.description ?? null, estimated_price: gift.estimated_price,
       category: gift.category ?? null, search_query: gift.search_query ?? gift.title,
-      source_url: gift.source_url ?? null, tags, global_shown: 0, global_liked: 0, is_seed: true,
+      source_url: gift.source_url ?? null, image_url: imageUrl, tags, global_shown: 0, global_liked: 0, is_seed: true,
     }).select().single();
 
     if (error || !row) { console.log(`  INSERT FAILED: ${gift.title} — ${error?.message}`); skipped++; continue; }
