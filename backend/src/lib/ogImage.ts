@@ -19,10 +19,25 @@ const META_IMAGE_RE = (prop: string) => new RegExp(
 const OG_IMAGE_RE = META_IMAGE_RE('og:image(?::secure_url)?');
 const TWITTER_IMAGE_RE = META_IMAGE_RE('twitter:image(?::src)?');
 
+// A store's own logo/banner is a very common og:image fallback on a
+// category/listing page (or any page missing a dedicated product image) —
+// caught this in production: 22/22 images a first backfill run wrote out
+// turned out to be one of 3 site logos, reused identically across dozens of
+// unrelated products. Filename-hint filtering catches the obvious cases
+// before ever storing one as if it were a real product photo; the
+// same-URL-already-used-elsewhere check in dealFinder.ts catches the rest
+// (a hashed CDN filename with no "logo" in it that still turns out to be a
+// shared site-wide banner, not product-specific).
+const GENERIC_IMAGE_HINT_RE = /logo|placeholder|sprite|favicon|no[-_]?image|default[-_]?(image|photo|banner)/i;
+
+export function looksLikeGenericImage(url: string): boolean {
+  return GENERIC_IMAGE_HINT_RE.test(url);
+}
+
 export function extractOgImageFromHtml(html: string, pageUrl: string): string | null {
   const match = OG_IMAGE_RE.exec(html) ?? TWITTER_IMAGE_RE.exec(html);
   const raw = match?.[1] ?? match?.[2];
-  if (!raw) return null;
+  if (!raw || looksLikeGenericImage(raw)) return null;
   try {
     return new URL(raw, pageUrl).toString();
   } catch {

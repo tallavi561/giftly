@@ -194,7 +194,7 @@ export async function runVerifyDealLinks(): Promise<VerifyLinksResult> {
       // Backfill: this deal predates image sourcing (or extraction failed
       // at insert time) — try again now that the link is confirmed live.
       const found = await fetchOgImage(deal.source_url);
-      if (found && await isUrlLive(found)) {
+      if (found && await isUrlLive(found) && !(await isImageUsedElsewhere(found, deal.id))) {
         const { error: upErr } = await supabase.from('deal_alerts').update({ image_url: found }).eq('id', deal.id);
         if (upErr) logger.warn('Failed to backfill deal image', { id: deal.id, err: upErr.message });
       }
@@ -288,6 +288,19 @@ export interface DealInput {
   expires_at?: string | null; // ISO date, if known — otherwise DEFAULT_EXPIRY_DAYS from now
 }
 
+// Same exact image already sitting on a different deal is a strong signal
+// it's a site-wide banner/logo rather than a real product photo (the
+// filename-hint filter in ogImage.ts doesn't catch every case, e.g. a
+// hashed CDN filename with no "logo" in it) — reject it rather than show
+// the same picture on unrelated products.
+async function isImageUsedElsewhere(url: string, excludeDealId?: string): Promise<boolean> {
+  let query = supabase.from('deal_alerts').select('id', { count: 'exact', head: true }).eq('image_url', url);
+  if (excludeDealId) query = query.neq('id', excludeDealId);
+  const { count, error } = await query;
+  if (error) { logger.warn('Duplicate-image check failed, treating as untrustworthy', { url, err: error.message }); return true; }
+  return (count ?? 0) > 0;
+}
+
 export interface InsertOutcome { ok: boolean; reason?: string }
 
 export async function insertValidatedDeal(input: DealInput): Promise<InsertOutcome> {
@@ -307,12 +320,18 @@ export async function insertValidatedDeal(input: DealInput): Promise<InsertOutco
     ? new Date(input.expires_at).toISOString()
     : new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 3600 * 1000).toISOString();
 
+  let imageUrl = input.image_url ?? null;
+  if (imageUrl && await isImageUsedElsewhere(imageUrl)) {
+    logger.info('Rejecting deal image already used on another deal (likely a generic site image)', { url: imageUrl, title: input.title });
+    imageUrl = null;
+  }
+
   const { error } = await supabase.from('deal_alerts').insert({
     title: input.title,
     description: input.description ?? null,
     source_site: input.source_site,
     source_url: input.source_url,
-    image_url: input.image_url ?? null,
+    image_url: imageUrl,
     current_price: input.current_price,
     original_price: input.original_price ?? null,
     discount_pct: discountPct,
