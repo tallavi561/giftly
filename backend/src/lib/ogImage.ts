@@ -8,7 +8,11 @@
 import { Logger } from './logger.js';
 
 const logger = new Logger('ogImage');
-const FETCH_TIMEOUT_MS = 5000;
+// AliExpress's affiliate short-link redirect chain (s.click.aliexpress.com
+// -> aliexpress.com -> he.aliexpress.com, geo-adapted) is measurably slower
+// than the Israeli retail sites or Amazon — 5s was too tight and caused
+// real "operation was aborted" failures in production logs.
+const FETCH_TIMEOUT_MS = 12000;
 const MAX_HTML_BYTES = 500_000; // the og:image tag always lives in <head> — no need to read a whole page
 
 const META_IMAGE_RE = (prop: string) => new RegExp(

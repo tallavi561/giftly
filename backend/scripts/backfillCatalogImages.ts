@@ -31,13 +31,27 @@ async function main() {
 
   console.log(`${gifts.length} catalog gift(s) with a source_url and no image_url yet.`);
 
+  // Same lesson as deal_alerts (see dealFinder.ts's isImageUsedElsewhere):
+  // og:image on a listing/category page (or a page missing a dedicated
+  // product image) commonly falls back to the site's own logo/banner —
+  // reject an image already sitting on a different catalog gift rather than
+  // show the same picture on unrelated products.
+  async function isImageUsedElsewhere(url: string, excludeId: string): Promise<boolean> {
+    const { count, error: cErr } = await supabase.from('good_gifts_catalog')
+      .select('id', { count: 'exact', head: true }).eq('image_url', url).neq('id', excludeId);
+    if (cErr) { console.log(`  duplicate-image check failed, treating as untrustworthy: ${cErr.message}`); return true; }
+    return (count ?? 0) > 0;
+  }
+
   let updated = 0, noImageFound = 0, deadLink = 0;
   for (const gift of gifts) {
     const live = await isUrlLive(gift.source_url);
     if (!live) { console.log(`  skip (dead link): ${gift.title}`); deadLink++; continue; }
 
     const found = await fetchOgImage(gift.source_url);
-    if (!found || !(await isUrlLive(found))) { console.log(`  no image found: ${gift.title}`); noImageFound++; continue; }
+    if (!found || !(await isUrlLive(found)) || await isImageUsedElsewhere(found, gift.id)) {
+      console.log(`  no image found: ${gift.title}`); noImageFound++; continue;
+    }
 
     const { error: upErr } = await supabase.from('good_gifts_catalog').update({ image_url: found }).eq('id', gift.id);
     if (upErr) { console.log(`  UPDATE FAILED: ${gift.title} — ${upErr.message}`); continue; }

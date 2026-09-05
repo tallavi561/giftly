@@ -65,10 +65,15 @@ async function main() {
 
     // Pull the product photo straight off the real link, when we have one —
     // never fabricated, never hosted by us (see backend/src/lib/ogImage.ts).
+    // Same duplicate-image guard as backfillCatalogImages.ts: a site logo
+    // reused across unrelated products is rejected, not just filtered by name.
     let imageUrl = gift.image_url ?? null;
     if (!imageUrl && gift.source_url) {
       const found = await fetchOgImage(gift.source_url);
-      imageUrl = found && await isUrlLive(found) ? found : null;
+      if (found && await isUrlLive(found)) {
+        const { count } = await supabase.from('good_gifts_catalog').select('id', { count: 'exact', head: true }).eq('image_url', found);
+        imageUrl = (count ?? 0) > 0 ? null : found;
+      }
     }
 
     const { data: row, error } = await supabase.from('good_gifts_catalog').insert({

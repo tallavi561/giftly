@@ -107,7 +107,10 @@ function normalizeUrl(url: string): URL | null {
   try { return new URL(url); } catch { return null; }
 }
 
-const URL_CHECK_TIMEOUT_MS = 5000;
+// Bumped from 5000 — AliExpress's affiliate redirect chain (used by
+// good_gifts_catalog's isUrlLive checks, not just deal sites) needs more
+// time than the Israeli retail sites this was originally tuned for.
+const URL_CHECK_TIMEOUT_MS = 12000;
 
 async function fetchWithTimeout(url: string): Promise<Response> {
   const controller = new AbortController();
