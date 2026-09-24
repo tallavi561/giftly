@@ -33,6 +33,12 @@ export function currentHebrewYear(): number {
   return new HDate().getFullYear();
 }
 
+/** Today's date on the Hebrew calendar, as {year, month, day} */
+export function currentHebrewDate(): { year: number; month: number; day: number } {
+  const h = new HDate();
+  return { year: h.getFullYear(), month: h.getMonth(), day: h.getDate() };
+}
+
 /** How many days are in a Hebrew month (for a given Hebrew year) */
 export function daysInHebrewMonth(month: number, hebrewYear: number): number {
   return HDate.daysInMonth(month, hebrewYear);
@@ -106,15 +112,32 @@ const HEB_LETTERS = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט',
  */
 export function hebrewToGregorianDate(hYear: number, hMonth: number, hDay: number): string | null {
   try {
+    // hebcal's month numbers already match this app's storage convention 1-to-1
+    // (ADAR_I = 12, ADAR_II = 13), so a stored month needs no remapping against
+    // a concrete hYear — only the out-of-range case (month 13 requested in a
+    // non-leap year, which the month picker shouldn't offer) falls back safely.
     const isLeap = HDate.isLeapYear(hYear);
     let m = hMonth;
     if (m === 13 && !isLeap) m = months.ADAR_I;
-    if (m === 12 && isLeap) m = months.ADAR_II;
     const maxDays = HDate.daysInMonth(m, hYear);
     if (hDay < 1 || hDay > maxDays) return null;
     const hdate = new HDate(hDay, m, hYear);
     const greg = hdate.greg();
-    return greg.toISOString().split('T')[0];
+    // Use local date parts, not toISOString() (which converts to UTC and
+    // shifts the date back a day in any timezone ahead of UTC, e.g. Israel).
+    return `${greg.getFullYear()}-${String(greg.getMonth() + 1).padStart(2, '0')}-${String(greg.getDate()).padStart(2, '0')}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Convert a Gregorian YYYY-MM-DD string to Hebrew {year, month, day} parts */
+export function gregorianToHebrewParts(gregDateStr: string): { year: number; month: number; day: number } | null {
+  try {
+    const [y, mo, d] = gregDateStr.split('-').map(Number);
+    if (!y || !mo || !d) return null;
+    const hdate = new HDate(new Date(y, mo - 1, d));
+    return { year: hdate.getFullYear(), month: hdate.getMonth(), day: hdate.getDate() };
   } catch {
     return null;
   }
