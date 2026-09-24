@@ -669,6 +669,12 @@ a { text-decoration: none; color: inherit; }
   background: #DC2626; color: #ffffff;
   font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 8px;
 }
+.home-deal-img {
+  width: 100%; height: 110px; object-fit: cover;
+  border-radius: 10px; margin-bottom: 10px;
+}
+.home-deal-img-placeholder { display: flex; align-items: center; justify-content: center; }
+.home-deal-img-placeholder .material-symbols-outlined { font-size: 36px; color: rgba(255,255,255,0.4); }
 .home-deal-for-event {
   display: inline-flex; align-items: center; gap: 4px; width: fit-content;
   font-size: 11px; font-weight: 600; color: var(--primary);
@@ -1992,6 +1998,59 @@ select:focus {
   border-color: var(--primary);
   color: var(--on-primary);
 }
+
+/* ── Wheel date picker ── */
+.bdw-wheels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bdw-wheel-col { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.bdw-wheel-label { font-size: 11px; font-weight: 600; color: var(--on-surface-variant); }
+.wheel-picker {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--surface-container);
+}
+.wheel-picker-list {
+  height: 100%;
+  margin: 0;
+  padding-inline-start: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  list-style: none;
+  scrollbar-width: none;
+}
+.wheel-picker-list::-webkit-scrollbar { display: none; }
+.wheel-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.wheel-picker-item.selected { color: var(--primary); font-weight: 700; font-size: 16px; }
+.wheel-picker-highlight {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 1.5px solid var(--primary-container);
+  border-bottom: 1.5px solid var(--primary-container);
+  pointer-events: none;
+}
+.wheel-picker::before,
+.wheel-picker::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 40%;
+  pointer-events: none;
+  z-index: 1;
+}
+.wheel-picker::before { top: 0; background: linear-gradient(to bottom, var(--surface-container), transparent); }
+.wheel-picker::after { bottom: 0; background: linear-gradient(to top, var(--surface-container), transparent); }
 
 /* ── Hebrew calendar ── */
 .ef-hebrew-preview {

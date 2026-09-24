@@ -51,7 +51,8 @@ export interface CatalogGift {
   estimated_price: number | null;
   category: string | null;
   search_query: string | null;
-  source_url: string | null; // real purchase link, when known (migration_v22) — frontend doesn't read this yet
+  source_url: string | null; // real purchase link, when known (migration_v22)
+  image_url: string | null; // hotlinked from source_url's own og:image (migration_v25) — never stored/downloaded
   tags: string[];
   global_shown: number;
   global_liked: number;
@@ -131,6 +132,8 @@ export interface Recommendation {
   category: string | null;
   category_tag: string | null;
   search_query: string | null;
+  source_url: string | null; // real product link, copied from good_gifts_catalog when catalog-backed (migration_v25)
+  image_url: string | null; // hotlinked from source_url's own og:image — never populated for ungrounded Gemini-only rows
   score: number | null;
   rating: number | null;
   feedback_reason: FeedbackReason | null;

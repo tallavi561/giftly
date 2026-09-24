@@ -44,6 +44,7 @@ export default function ContactsListPage() {
 
   const [incomingRequests, setIncomingRequests] = useState<ContactRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<ContactRequest[]>([]);
+  const [reciprocatePrompt, setReciprocatePrompt] = useState<ContactRequest | null>(null);
 
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<Recommendation[]>([]);
@@ -152,9 +153,10 @@ export default function ContactsListPage() {
     }
   }
 
-  async function approveRequest(req: ContactRequest) {
-    await api.contactRequests.approve(req.id, req.requester_name ?? 'ללא שם', null);
+  async function approveRequest(req: ContactRequest, reciprocate: boolean) {
+    await api.contactRequests.approve(req.id, req.requester_name ?? 'ללא שם', null, reciprocate);
     setIncomingRequests(r => r.filter(x => x.id !== req.id));
+    setReciprocatePrompt(null);
   }
 
   async function rejectRequest(req: ContactRequest) {
@@ -202,7 +204,7 @@ export default function ContactsListPage() {
                 <p className="req-sub">רוצה להוסיף אותך כאיש קשר</p>
               </div>
               <div className="request-actions">
-                <button className="btn-icon-sm approve" onClick={() => approveRequest(r)} title="אשר">
+                <button className="btn-icon-sm approve" onClick={() => setReciprocatePrompt(r)} title="אשר">
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
                 </button>
                 <button className="btn-icon-sm reject" onClick={() => rejectRequest(r)} title="דחה">
@@ -284,6 +286,28 @@ export default function ContactsListPage() {
               </div>
             );
           })}
+        </div>
+      )}
+      {/* Reciprocate confirmation — asked on every approve, default answer is "yes" */}
+      {reciprocatePrompt && (
+        <div className="modal-overlay" onClick={() => setReciprocatePrompt(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 360, textAlign: 'center' }}>
+            <h3>
+              <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: 22 }}>diversity_3</span>
+              אישור בקשה
+            </h3>
+            <p style={{ color: 'var(--on-surface-variant)', fontSize: 14, margin: '8px 0 20px' }}>
+              להוסיף גם את {(reciprocatePrompt as any).requester?.display_name ?? reciprocatePrompt.requester_name ?? 'המשתמש'} כאיש קשר שלך?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button className="login-submit-btn" onClick={() => approveRequest(reciprocatePrompt, true)} autoFocus>
+                כן, הוסף גם אותו/ה
+              </button>
+              <button className="btn-tonal" onClick={() => approveRequest(reciprocatePrompt, false)}>
+                לא, רק אשר את הבקשה
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {/* Add Contact Modal */}

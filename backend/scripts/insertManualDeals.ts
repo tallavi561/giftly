@@ -16,7 +16,8 @@
 
 import 'dotenv/config';
 import { readFileSync } from 'fs';
-import { insertValidatedDeal, deactivateExpiredDeals, type DealInput } from '../src/services/dealFinder.js';
+import { insertValidatedDeal, isUrlLive, deactivateExpiredDeals, type DealInput } from '../src/services/dealFinder.js';
+import { fetchOgImage } from '../src/lib/ogImage.js';
 import { logScriptOutput } from './lib/scriptOutput.js';
 
 async function main() {
@@ -30,6 +31,12 @@ async function main() {
 
   let inserted = 0, skipped = 0;
   for (const deal of deals) {
+    // Pull the product photo straight off the real link, when we have one —
+    // never fabricated, never hosted by us (see backend/src/lib/ogImage.ts).
+    if (!deal.image_url && deal.source_url) {
+      const found = await fetchOgImage(deal.source_url);
+      deal.image_url = found && await isUrlLive(found) ? found : null;
+    }
     const outcome = await insertValidatedDeal(deal);
     if (outcome.ok) { inserted++; console.log(`  + ${deal.title}`); }
     else { skipped++; console.log(`  skip (${outcome.reason}): ${deal.title}`); }

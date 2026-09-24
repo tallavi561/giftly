@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import WheelPicker, { type WheelOption } from './WheelPicker.js';
 import {
   getHebrewMonths, daysInHebrewMonth, currentHebrewYear,
-  hebrewToGregorianDate, gregorianToHebrewDisplay,
+  hebrewToGregorianDate, gregorianToHebrewParts, hebrewDayStr,
 } from '../lib/hebrewDate.js';
 
 interface Props {
@@ -11,81 +12,111 @@ interface Props {
   onChange: (field: 'birth_date' | 'city' | 'country', value: string) => void;
 }
 
-const DEFAULT_HY = currentHebrewYear() - 25;
+const GREGORIAN_MONTHS = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+];
+
+const today = new Date();
+const CURRENT_G_YEAR = today.getFullYear();
+const CURRENT_H_YEAR = currentHebrewYear();
+const DEFAULT_AGE = 25;
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Number of days in Gregorian month `m` (1-indexed) of `y` */
+function daysInGregorianMonth(y: number, m: number): number {
+  return new Date(y, m, 0).getDate();
+}
+
+function parseGregorian(dateStr: string): { year: number; month: number; day: number } | null {
+  if (!dateStr) return null;
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  if (!y || !mo || !d) return null;
+  return { year: y, month: mo, day: d };
+}
+
+function range(from: number, to: number): number[] {
+  const out: number[] = [];
+  for (let i = from; i <= to; i++) out.push(i);
+  return out;
+}
 
 export default function LocationBirthFields({ birth_date, city, country, onChange }: Props) {
   const [calType, setCalType] = useState<'gregorian' | 'hebrew'>('gregorian');
+  const [touched, setTouched] = useState(Boolean(birth_date));
 
-  // Hebrew sub-state (only used when calType === 'hebrew').
-  // Year/day are kept as raw strings while editing so the field can be
-  // fully cleared (e.g. to delete the default "1" and type "23") without
-  // snapping back to a clamped value on every keystroke; clamping/validation
-  // happens on blur instead.
-  const [hYearStr, setHYearStr] = useState(String(DEFAULT_HY));
-  const [hMonth,   setHMonth]   = useState(7);  // Tishrei
-  const [hDayStr,  setHDayStr]  = useState('1');
+  const initialGreg = parseGregorian(birth_date);
+  const initialHeb = birth_date ? gregorianToHebrewParts(birth_date) : null;
 
-  const hYear = Number(hYearStr) || DEFAULT_HY;
-  const hDay = Number(hDayStr) || 1;
+  const [gYear, setGYear]   = useState(initialGreg?.year  ?? CURRENT_G_YEAR - DEFAULT_AGE);
+  const [gMonth, setGMonth] = useState(initialGreg?.month ?? 1);
+  const [gDay, setGDay]     = useState(initialGreg?.day   ?? 1);
 
-  const hebrewMonths = getHebrewMonths(hYear);
-  const maxHDay = daysInHebrewMonth(hMonth, hYear);
+  const [hYear, setHYear]   = useState(initialHeb?.year  ?? CURRENT_H_YEAR - DEFAULT_AGE);
+  const [hMonth, setHMonth] = useState(initialHeb?.month ?? 7); // Tishrei
+  const [hDay, setHDay]     = useState(initialHeb?.day   ?? 1);
 
-  // Clamp day when month/year changes
-  useEffect(() => {
-    if (hDay > maxHDay) setHDayStr(String(maxHDay));
-  }, [hMonth, hYear]);
+  // Gregorian bounds: birth date can't be in the future.
+  const isCurrentGYear = gYear === CURRENT_G_YEAR;
+  const maxGMonth = isCurrentGYear ? today.getMonth() + 1 : 12;
+  const clampedGMonth = Math.min(gMonth, maxGMonth);
+  const isCurrentGMonth = isCurrentGYear && clampedGMonth === maxGMonth;
+  const maxGDay = isCurrentGMonth ? today.getDate() : daysInGregorianMonth(gYear, clampedGMonth);
+  const clampedGDay = Math.min(gDay, maxGDay);
 
-  // When any Hebrew field changes (and is validly filled in) → convert and emit
-  useEffect(() => {
-    if (calType !== 'hebrew') return;
-    if (hYearStr === '' || hDayStr === '') return;
-    const greg = hebrewToGregorianDate(hYear, hMonth, hDay);
+  const gYearOptions: WheelOption[] = range(CURRENT_G_YEAR - 110, CURRENT_G_YEAR).map(y => ({ value: y, label: String(y) }));
+  const gMonthOptions: WheelOption[] = GREGORIAN_MONTHS.slice(0, maxGMonth).map((name, i) => ({ value: i + 1, label: name }));
+  const gDayOptions: WheelOption[] = range(1, maxGDay).map(d => ({ value: d, label: String(d) }));
+
+  // Hebrew bounds: year capped at the current Hebrew year (month/day within it are left open,
+  // matching the leniency the Gregorian side used to have before the `max` attribute existed).
+  const clampedHYear = Math.min(hYear, CURRENT_H_YEAR);
+  const hebrewMonths = getHebrewMonths(clampedHYear);
+  const clampedHMonth = hebrewMonths.some(m => m.num === hMonth) ? hMonth : hebrewMonths[0].num;
+  const maxHDay = daysInHebrewMonth(clampedHMonth, clampedHYear);
+  const clampedHDay = Math.min(hDay, maxHDay);
+
+  const hYearOptions: WheelOption[] = range(CURRENT_H_YEAR - 110, CURRENT_H_YEAR).map(y => ({ value: y, label: String(y) }));
+  const hMonthOptions: WheelOption[] = hebrewMonths.map(m => ({ value: m.num, label: m.name }));
+  const hDayOptions: WheelOption[] = range(1, maxHDay).map(d => ({ value: d, label: hebrewDayStr(d) }));
+
+  function commitGregorian(next: { year: number; month: number; day: number }) {
+    setTouched(true);
+    setGYear(next.year); setGMonth(next.month); setGDay(next.day);
+    onChange('birth_date', `${next.year}-${pad2(next.month)}-${pad2(next.day)}`);
+  }
+
+  function commitHebrew(next: { year: number; month: number; day: number }) {
+    setTouched(true);
+    setHYear(next.year); setHMonth(next.month); setHDay(next.day);
+    const greg = hebrewToGregorianDate(next.year, next.month, next.day);
     if (greg) onChange('birth_date', greg);
-  }, [calType, hYear, hMonth, hDay, hYearStr, hDayStr]);
+  }
 
   function switchToHebrew() {
+    const gregStr = `${gYear}-${pad2(clampedGMonth)}-${pad2(clampedGDay)}`;
+    const parts = gregorianToHebrewParts(gregStr);
+    if (parts) { setHYear(parts.year); setHMonth(parts.month); setHDay(parts.day); }
     setCalType('hebrew');
-    // Reset to defaults (can't reliably reverse-convert an existing gregorian date)
-    setHYearStr(String(DEFAULT_HY));
-    setHMonth(7);
-    setHDayStr('1');
-  }
-
-  function commitHYear() {
-    const n = Number(hYearStr);
-    if (hYearStr === '' || Number.isNaN(n)) { setHYearStr(String(DEFAULT_HY)); return; }
-    setHYearStr(String(Math.min(5900, Math.max(5700, n))));
-  }
-
-  function commitHDay() {
-    const n = Number(hDayStr);
-    if (hDayStr === '' || Number.isNaN(n)) { setHDayStr('1'); return; }
-    setHDayStr(String(Math.min(maxHDay, Math.max(1, n))));
   }
 
   function switchToGregorian() {
+    const greg = hebrewToGregorianDate(clampedHYear, clampedHMonth, clampedHDay);
+    if (greg) {
+      const parts = parseGregorian(greg)!;
+      setGYear(parts.year); setGMonth(parts.month); setGDay(parts.day);
+    }
     setCalType('gregorian');
-    // Clear birth_date so the user re-enters it in the date picker
-    onChange('birth_date', '');
   }
-
-  // Gregorian preview label shown below Hebrew picker
-  const gregPreview = calType === 'hebrew' && hYearStr !== '' && hDayStr !== ''
-    ? hebrewToGregorianDate(hYear, hMonth, hDay) ?? ''
-    : '';
-
-  // If we have a gregorian date and calType is gregorian, also show Hebrew equivalent
-  const hebEquivalent = calType === 'gregorian' && birth_date
-    ? gregorianToHebrewDisplay(birth_date)
-    : '';
 
   return (
     <>
       <div className="field">
         <label>תאריך לידה</label>
 
-        {/* Calendar type toggle */}
         <div className="cpf-children-toggle" style={{ marginBottom: 8 }}>
           <button
             type="button"
@@ -104,57 +135,39 @@ export default function LocationBirthFields({ birth_date, city, country, onChang
         </div>
 
         {calType === 'gregorian' ? (
-          <>
-            <input
-              type="date"
-              value={birth_date}
-              onChange={e => onChange('birth_date', e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
-            />
-            {hebEquivalent && (
-              <p className="ef-hebrew-preview" style={{ marginTop: 6 }}>{hebEquivalent}</p>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="fields-row" style={{ marginBottom: 4 }}>
-              <div className="field">
-                <label>שנה עברית</label>
-                <input
-                  type="number"
-                  min={5700}
-                  max={5900}
-                  value={hYearStr}
-                  onChange={e => setHYearStr(e.target.value)}
-                  onBlur={commitHYear}
-                />
-              </div>
-              <div className="field">
-                <label>חודש</label>
-                <select value={hMonth} onChange={e => setHMonth(Number(e.target.value))}>
-                  {hebrewMonths.map(m => (
-                    <option key={m.num} value={m.num}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>יום</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxHDay}
-                  value={hDayStr}
-                  onChange={e => setHDayStr(e.target.value)}
-                  onBlur={commitHDay}
-                />
-              </div>
+          <div className="bdw-wheels">
+            <div className="bdw-wheel-col">
+              <span className="bdw-wheel-label">יום</span>
+              <WheelPicker options={gDayOptions} value={clampedGDay} ariaLabel="יום" onChange={d => commitGregorian({ year: gYear, month: clampedGMonth, day: d })} />
             </div>
-            {gregPreview && (
-              <p className="ef-hebrew-preview">
-                מקביל ל-{new Date(gregPreview).toLocaleDateString('he-IL')}
-              </p>
-            )}
-          </>
+            <div className="bdw-wheel-col">
+              <span className="bdw-wheel-label">חודש</span>
+              <WheelPicker options={gMonthOptions} value={clampedGMonth} ariaLabel="חודש" onChange={m => commitGregorian({ year: gYear, month: m, day: clampedGDay })} />
+            </div>
+            <div className="bdw-wheel-col">
+              <span className="bdw-wheel-label">שנה</span>
+              <WheelPicker options={gYearOptions} value={gYear} ariaLabel="שנה" onChange={y => commitGregorian({ year: y, month: clampedGMonth, day: clampedGDay })} />
+            </div>
+          </div>
+        ) : (
+          <div className="bdw-wheels">
+            <div className="bdw-wheel-col">
+              <span className="bdw-wheel-label">יום</span>
+              <WheelPicker options={hDayOptions} value={clampedHDay} ariaLabel="יום" onChange={d => commitHebrew({ year: clampedHYear, month: clampedHMonth, day: d })} />
+            </div>
+            <div className="bdw-wheel-col">
+              <span className="bdw-wheel-label">חודש</span>
+              <WheelPicker options={hMonthOptions} value={clampedHMonth} ariaLabel="חודש" onChange={m => commitHebrew({ year: clampedHYear, month: m, day: clampedHDay })} />
+            </div>
+            <div className="bdw-wheel-col">
+              <span className="bdw-wheel-label">שנה</span>
+              <WheelPicker options={hYearOptions} value={clampedHYear} ariaLabel="שנה" onChange={y => commitHebrew({ year: y, month: clampedHMonth, day: clampedHDay })} />
+            </div>
+          </div>
+        )}
+
+        {!touched && (
+          <p className="ef-hebrew-preview" style={{ marginTop: 6 }}>גללו לבחירת תאריך הלידה</p>
         )}
       </div>
 

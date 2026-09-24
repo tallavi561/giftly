@@ -17,10 +17,20 @@ import { readFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { MASTER_TAG_LIST } from '../src/types/index.js';
 import { isGiftAppropriate } from '../src/services/giftAppropriateness.js';
+import { isUrlLive } from '../src/services/dealFinder.js';
+import { fetchOgImage } from '../src/lib/ogImage.js';
 import { logScriptOutput } from './lib/scriptOutput.js';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const VALID_TAGS = new Set<string>([...MASTER_TAG_LIST, 'general']);
+
+// AliExpress rate-limits by request burst, not a simple domain block (see
+// backfillCatalogImages.ts for how this was found) — pace requests to this
+// one domain to avoid tripping it.
+const ALIEXPRESS_PACE_MS = 3000;
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 interface GiftInput {
   title: string;
@@ -29,6 +39,7 @@ interface GiftInput {
   category?: string | null;
   search_query?: string | null;
   source_url?: string | null;
+  image_url?: string | null;
   tags: string[];
 }
 
@@ -60,10 +71,24 @@ async function main() {
     const appropriateness = await isGiftAppropriate(gift.title, gift.description);
     if (!appropriateness.ok) { console.log(`  skip (not gift-appropriate: ${appropriateness.reason}): ${gift.title}`); skipped++; continue; }
 
+    // Pull the product photo straight off the real link, when we have one —
+    // never fabricated, never hosted by us (see backend/src/lib/ogImage.ts).
+    // Same duplicate-image guard as backfillCatalogImages.ts: a site logo
+    // reused across unrelated products is rejected, not just filtered by name.
+    let imageUrl = gift.image_url ?? null;
+    if (!imageUrl && gift.source_url) {
+      if (gift.source_url.includes('aliexpress')) await sleep(ALIEXPRESS_PACE_MS);
+      const found = await fetchOgImage(gift.source_url);
+      if (found && await isUrlLive(found)) {
+        const { count } = await supabase.from('good_gifts_catalog').select('id', { count: 'exact', head: true }).eq('image_url', found);
+        imageUrl = (count ?? 0) > 0 ? null : found;
+      }
+    }
+
     const { data: row, error } = await supabase.from('good_gifts_catalog').insert({
       title: gift.title, description: gift.description ?? null, estimated_price: gift.estimated_price,
       category: gift.category ?? null, search_query: gift.search_query ?? gift.title,
-      source_url: gift.source_url ?? null, tags, global_shown: 0, global_liked: 0, is_seed: true,
+      source_url: gift.source_url ?? null, image_url: imageUrl, tags, global_shown: 0, global_liked: 0, is_seed: true,
     }).select().single();
 
     if (error || !row) { console.log(`  INSERT FAILED: ${gift.title} — ${error?.message}`); skipped++; continue; }

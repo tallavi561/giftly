@@ -19,6 +19,7 @@ import { Logger } from '../lib/logger.js';
 import { MASTER_TAG_LIST, TAG_LABEL_HE, type CatalogTag } from '../types/index.js';
 import { parseJsonObjectLoose } from '../lib/jsonExtract.js';
 import { isGiftAppropriate } from './giftAppropriateness.js';
+import { extractOgImageFromHtml, readBoundedHtml, fetchOgImage } from '../lib/ogImage.js';
 
 const logger = new Logger('dealFinder');
 
@@ -106,7 +107,10 @@ function normalizeUrl(url: string): URL | null {
   try { return new URL(url); } catch { return null; }
 }
 
-const URL_CHECK_TIMEOUT_MS = 5000;
+// Bumped from 5000 — AliExpress's affiliate redirect chain (used by
+// good_gifts_catalog's isUrlLive checks, not just deal sites) needs more
+// time than the Israeli retail sites this was originally tuned for.
+const URL_CHECK_TIMEOUT_MS = 12000;
 
 async function fetchWithTimeout(url: string): Promise<Response> {
   const controller = new AbortController();
@@ -130,14 +134,18 @@ async function fetchWithTimeout(url: string): Promise<Response> {
 // sale that ended, a page that moved) with full confidence. Checking res.ok
 // here catches that with a real HTTP status, for every deal, not just
 // grounding-redirect ones.
-async function resolveFinalUrl(url: string): Promise<{ ok: boolean; finalUrl: string | null }> {
+// Also returns the page's HTML (bounded to <head>) so callers can pull the
+// og:image straight out of the same fetch, instead of hitting the site
+// again just to look for a picture.
+async function resolveFinalUrl(url: string): Promise<{ ok: boolean; finalUrl: string | null; html: string | null }> {
   try {
     const res = await fetchWithTimeout(url);
-    await res.body?.cancel();
-    return { ok: res.ok, finalUrl: res.url || null };
+    if (!res.ok) { await res.body?.cancel(); return { ok: false, finalUrl: res.url || null, html: null }; }
+    const html = await readBoundedHtml(res);
+    return { ok: true, finalUrl: res.url || null, html };
   } catch (err) {
     logger.warn('Failed to resolve/verify URL', { url, err: (err as Error).message });
-    return { ok: false, finalUrl: null };
+    return { ok: false, finalUrl: null, html: null };
   }
 }
 
@@ -164,7 +172,7 @@ export interface VerifyLinksResult { checked: number; deactivated: number }
 // to be shown to one user, so a dead link a user never happens to match
 // would otherwise sit active indefinitely.
 export async function runVerifyDealLinks(): Promise<VerifyLinksResult> {
-  const { data, error } = await supabase.from('deal_alerts').select('id, source_url').eq('is_active', true);
+  const { data, error } = await supabase.from('deal_alerts').select('id, source_url, image_url').eq('is_active', true);
   if (error) { logger.error('Fetch active deals for link verification failed', error); throw new Error(error.message); }
 
   let deactivated = 0;
@@ -174,6 +182,25 @@ export async function runVerifyDealLinks(): Promise<VerifyLinksResult> {
       const { error: upErr } = await supabase.from('deal_alerts').update({ is_active: false }).eq('id', deal.id);
       if (upErr) logger.warn('Failed to deactivate dead deal link', { id: deal.id, err: upErr.message });
       else deactivated++;
+      continue;
+    }
+    if (deal.image_url) {
+      // The product link is still fine but its photo can rot separately (CDN
+      // path changes, image removed) — drop just the stale image rather than
+      // the whole deal, since a live deal with no photo still falls back to
+      // the category-gradient placeholder on the frontend.
+      if (!(await isUrlLive(deal.image_url))) {
+        const { error: upErr } = await supabase.from('deal_alerts').update({ image_url: null }).eq('id', deal.id);
+        if (upErr) logger.warn('Failed to clear dead deal image', { id: deal.id, err: upErr.message });
+      }
+    } else {
+      // Backfill: this deal predates image sourcing (or extraction failed
+      // at insert time) — try again now that the link is confirmed live.
+      const found = await fetchOgImage(deal.source_url);
+      if (found && await isUrlLive(found) && !(await isImageUsedElsewhere(found, deal.id))) {
+        const { error: upErr } = await supabase.from('deal_alerts').update({ image_url: found }).eq('id', deal.id);
+        if (upErr) logger.warn('Failed to backfill deal image', { id: deal.id, err: upErr.message });
+      }
     }
   }
 
@@ -264,6 +291,19 @@ export interface DealInput {
   expires_at?: string | null; // ISO date, if known — otherwise DEFAULT_EXPIRY_DAYS from now
 }
 
+// Same exact image already sitting on a different deal is a strong signal
+// it's a site-wide banner/logo rather than a real product photo (the
+// filename-hint filter in ogImage.ts doesn't catch every case, e.g. a
+// hashed CDN filename with no "logo" in it) — reject it rather than show
+// the same picture on unrelated products.
+async function isImageUsedElsewhere(url: string, excludeDealId?: string): Promise<boolean> {
+  let query = supabase.from('deal_alerts').select('id', { count: 'exact', head: true }).eq('image_url', url);
+  if (excludeDealId) query = query.neq('id', excludeDealId);
+  const { count, error } = await query;
+  if (error) { logger.warn('Duplicate-image check failed, treating as untrustworthy', { url, err: error.message }); return true; }
+  return (count ?? 0) > 0;
+}
+
 export interface InsertOutcome { ok: boolean; reason?: string }
 
 export async function insertValidatedDeal(input: DealInput): Promise<InsertOutcome> {
@@ -283,12 +323,18 @@ export async function insertValidatedDeal(input: DealInput): Promise<InsertOutco
     ? new Date(input.expires_at).toISOString()
     : new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 3600 * 1000).toISOString();
 
+  let imageUrl = input.image_url ?? null;
+  if (imageUrl && await isImageUsedElsewhere(imageUrl)) {
+    logger.info('Rejecting deal image already used on another deal (likely a generic site image)', { url: imageUrl, title: input.title });
+    imageUrl = null;
+  }
+
   const { error } = await supabase.from('deal_alerts').insert({
     title: input.title,
     description: input.description ?? null,
     source_site: input.source_site,
     source_url: input.source_url,
-    image_url: input.image_url ?? null,
+    image_url: imageUrl,
     current_price: input.current_price,
     original_price: input.original_price ?? null,
     discount_pct: discountPct,
@@ -338,7 +384,7 @@ export async function runFindDeals(): Promise<FindDealsResult> {
         // before it's trusted — not just the grounding-redirect ones — since
         // a direct-domain URL can just as easily be stale (sale ended, page
         // moved/removed) even though the model cited it with confidence.
-        const { ok: urlLive, finalUrl } = await resolveFinalUrl(deal.source_url);
+        const { ok: urlLive, finalUrl, html } = await resolveFinalUrl(deal.source_url);
         const url = urlLive && finalUrl ? normalizeUrl(finalUrl) : null;
         const resolvedSourceUrl = finalUrl ?? deal.source_url;
         // Enforced, not just prompted — reject anything not actually hosted on the requested domain.
@@ -347,9 +393,17 @@ export async function runFindDeals(): Promise<FindDealsResult> {
           continue;
         }
 
+        // Gemini's plain-text response never carries an image (see the
+        // prompt above — no image field requested, the model has no vision
+        // tool here), so pull the product photo straight from the page we
+        // already fetched to verify the link, then confirm the image itself
+        // actually loads before trusting it.
+        const candidateImage = deal.image_url ?? (html ? extractOgImageFromHtml(html, resolvedSourceUrl) : null);
+        const imageUrl = candidateImage && await isUrlLive(candidateImage) ? candidateImage : null;
+
         const outcome = await insertValidatedDeal({
           title: deal.title, description: deal.description, source_site: site.domain, source_url: resolvedSourceUrl,
-          image_url: deal.image_url, current_price: deal.current_price, original_price: deal.original_price,
+          image_url: imageUrl, current_price: deal.current_price, original_price: deal.original_price,
           tags: Array.from(new Set([category, ...(deal.tags ?? [])])), expires_at: deal.expires_at,
         });
         if (outcome.ok) { inserted++; siteInserted++; }

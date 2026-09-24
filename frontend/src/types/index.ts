@@ -88,7 +88,12 @@ export interface Recommendation {
   batch_id: string | null;
   created_at: string;
   contact?: { name: string };
-  image_url?: string | null; // not populated by the backend yet — falls back to a placeholder
+  // Both hotlinked straight from the retailer, never downloaded/stored by us —
+  // populated only for catalog-backed recommendations with a real source
+  // link; null for freshly-generated (ungrounded Gemini) suggestions, which
+  // fall back to the category-gradient placeholder + Google-search link.
+  image_url?: string | null;
+  source_url?: string | null;
 }
 
 export interface DealAlert {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { Logger } from '../lib/logger.js';
 import type { Contact, Event, MatchedDeal } from '../types/index.js';
-import { nextEventOccurrence, daysUntil } from '../lib/utils.js';
+import { nextEventOccurrence, daysUntil, gradientForCategory } from '../lib/utils.js';
 
 const logger = new Logger('HomePage');
 
@@ -172,6 +172,13 @@ export default function HomePage() {
                   return (
                     <a key={m.deal.id} className="home-deal-card" href={m.deal.source_url} target="_blank" rel="noreferrer">
                       {m.deal.discount_pct != null && <span className="home-deal-badge">{m.deal.discount_pct}%-</span>}
+                      {m.deal.image_url ? (
+                        <img className="home-deal-img" src={m.deal.image_url} alt={m.deal.title} />
+                      ) : (
+                        <div className="home-deal-img home-deal-img-placeholder" style={{ background: gradientForCategory(m.category_label) }}>
+                          <span className="material-symbols-outlined">card_giftcard</span>
+                        </div>
+                      )}
                       <div className="home-deal-for-event">
                         <span className="material-symbols-outlined">calendar_month</span>
                         {forEventText}

@@ -92,10 +92,10 @@ export const api = {
   contactRequests: {
     incoming: () => request<any[]>('/contact-requests/incoming'),
     outgoing: () => request<any[]>('/contact-requests/outgoing'),
-    approve: (id: string, contactName: string, relationship: string | null) =>
+    approve: (id: string, contactName: string, relationship: string | null, reciprocate: boolean = true) =>
       request<any>(`/contact-requests/${id}/approve`, {
         method: 'POST',
-        body: JSON.stringify({ contact_name: contactName, relationship }),
+        body: JSON.stringify({ contact_name: contactName, relationship, reciprocate }),
       }),
     reject: (id: string) => request<null>(`/contact-requests/${id}/reject`, { method: 'POST' }),
   },

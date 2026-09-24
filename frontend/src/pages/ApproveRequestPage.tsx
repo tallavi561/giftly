@@ -23,7 +23,7 @@ export default function ApproveRequestPage() {
     icon = 'check_circle';
     iconClass = 'success';
     heading = 'הבקשה אושרה!';
-    message = 'האיש קשר נוסף לרשימה שלהם. הם יוכלו כעת לקבל המלצות מתנה עבורך.';
+    message = 'האיש קשר נוסף לשתי הרשימות — גם אצלם וגם אצלך. תוכלו כעת לקבל המלצות מתנה זה עבור זה.';
     buttonLabel = 'לדשבורד שלי';
   } else if (result === 'rejected') {
     icon = 'cancel';

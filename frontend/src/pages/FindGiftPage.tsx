@@ -59,7 +59,12 @@ function GiftCard({ rec, isActive, onRate }: { rec: Recommendation; isActive: bo
               מתאים!
             </button>
           </div>
-          {rec.search_query && (
+          {rec.source_url ? (
+            <a className="mg-feed-search" href={rec.source_url} target="_blank" rel="noreferrer">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>open_in_new</span>
+              לצפייה במוצר
+            </a>
+          ) : rec.search_query && (
             <a className="mg-feed-search" href={`https://www.google.com/search?q=${encodeURIComponent(rec.search_query)}`} target="_blank" rel="noreferrer">
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
               חפש ב-Google

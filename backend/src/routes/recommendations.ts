@@ -24,6 +24,7 @@ const TOP_GLOBAL_COUNT = 2; // spec §6.1 source #3
 interface RecommendationRow {
   contact_id: string; event_id: string; gift_id: string | null; title: string; description: string | null;
   estimated_price: number | null; category: string | null; category_tag: string | null; search_query: string | null;
+  source_url: string | null; image_url: string | null;
   score: number | null; batch_id: string; source: 'gemini' | 'compute';
 }
 
@@ -33,7 +34,8 @@ function catalogRow(
   return {
     contact_id: contactId, event_id: eventId, gift_id: gift.id, title: gift.title, description: gift.description,
     estimated_price: gift.estimated_price, category: gift.category, category_tag: gift.tags[0] ?? null,
-    search_query: gift.search_query, score, batch_id: batchId, source,
+    search_query: gift.search_query, source_url: gift.source_url, image_url: gift.image_url,
+    score, batch_id: batchId, source,
   };
 }
 
@@ -96,7 +98,13 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       return {
         contact_id, event_id, gift_id: matched?.id ?? null, title: r.title, description: r.description,
         estimated_price: r.estimated_price, category: r.category, category_tag: matched?.tags[0] ?? r.category_tag ?? null,
-        search_query: r.search_query, score: null, batch_id: '', source: 'gemini' as const,
+        search_query: r.search_query,
+        // Freshly-generated (non-catalog) suggestions have no verified real
+        // link — Gemini isn't grounded here, so we never fabricate a
+        // source_url/image_url for these; matched catalog examples already
+        // carry their own via matched?.id above being catalog-backed instead.
+        source_url: matched?.source_url ?? null, image_url: matched?.image_url ?? null,
+        score: null, batch_id: '', source: 'gemini' as const,
       };
     });
   } catch (err) {

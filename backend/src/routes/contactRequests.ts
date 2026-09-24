@@ -49,7 +49,7 @@ router.get('/outgoing', requireAuth, async (req: Request, res: Response) => {
 // POST /api/contact-requests/:id/approve — אישור בקשה + יצירת איש קשר עבור המבקש
 router.post('/:id/approve', requireAuth, async (req: Request, res: Response) => {
   const { user, token } = req as AuthRequest;
-  const { contact_name, relationship } = req.body as { contact_name?: string; relationship?: string };
+  const { contact_name, relationship, reciprocate = true } = req.body as { contact_name?: string; relationship?: string; reciprocate?: boolean };
   const db = supabaseForUser(token);
 
   // שליפת הבקשה
@@ -73,10 +73,28 @@ router.post('/:id/approve', requireAuth, async (req: Request, res: Response) => 
     });
   if (ce) { logger.error('Create contact on approve failed', ce); return void res.status(500).json({ error: ce.message }); }
 
+  // הדדיות (ברירת מחדל: כן) — המבקש נוסף גם כאיש קשר של המאשר
+  if (reciprocate) {
+    const { data: existingReciprocal } = await db
+      .from('contacts')
+      .select('id')
+      .eq('owner_id', user.id)
+      .eq('linked_user_id', reqRow.requester_id)
+      .maybeSingle();
+    if (!existingReciprocal) {
+      const { error: rce } = await db.from('contacts').insert({
+        owner_id: user.id,
+        name: reqRow.requester_name || 'ללא שם',
+        linked_user_id: reqRow.requester_id,
+      });
+      if (rce) logger.error('Create reciprocal contact on approve failed', rce);
+    }
+  }
+
   // עדכון סטטוס הבקשה
   await db.from('contact_requests').update({ status: 'approved' }).eq('id', req.params.id);
 
-  logger.info('Request approved', { requestId: req.params.id });
+  logger.info('Request approved', { requestId: req.params.id, reciprocate });
   res.json({ ok: true });
 });
 
@@ -128,6 +146,22 @@ router.get('/action', async (req: Request, res: Response) => {
     if (ce) {
       logger.error('Create contact via email link failed', ce);
       return void res.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/approve-request?error=server`);
+    }
+
+    // הדדיות כברירת מחדל — אין כאן סשן אינטראקטיבי לשאול, אז מוסיפים אוטומטית
+    const { data: existingReciprocal } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('owner_id', reqRow.target_user_id)
+      .eq('linked_user_id', reqRow.requester_id)
+      .maybeSingle();
+    if (!existingReciprocal) {
+      const { error: rce } = await supabase.from('contacts').insert({
+        owner_id: reqRow.target_user_id,
+        name: reqRow.requester_name ?? 'איש קשר',
+        linked_user_id: reqRow.requester_id,
+      });
+      if (rce) logger.error('Create reciprocal contact via email link failed', rce);
     }
 
     await supabase.from('contact_requests').update({ status: 'approved' }).eq('id', token);
