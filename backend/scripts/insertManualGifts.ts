@@ -24,6 +24,14 @@ import { logScriptOutput } from './lib/scriptOutput.js';
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const VALID_TAGS = new Set<string>([...MASTER_TAG_LIST, 'general']);
 
+// AliExpress rate-limits by request burst, not a simple domain block (see
+// backfillCatalogImages.ts for how this was found) — pace requests to this
+// one domain to avoid tripping it.
+const ALIEXPRESS_PACE_MS = 3000;
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 interface GiftInput {
   title: string;
   description?: string | null;
@@ -69,6 +77,7 @@ async function main() {
     // reused across unrelated products is rejected, not just filtered by name.
     let imageUrl = gift.image_url ?? null;
     if (!imageUrl && gift.source_url) {
+      if (gift.source_url.includes('aliexpress')) await sleep(ALIEXPRESS_PACE_MS);
       const found = await fetchOgImage(gift.source_url);
       if (found && await isUrlLive(found)) {
         const { count } = await supabase.from('good_gifts_catalog').select('id', { count: 'exact', head: true }).eq('image_url', found);

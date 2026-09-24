@@ -18,6 +18,17 @@ import { logScriptOutput } from './lib/scriptOutput.js';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
+// AliExpress rate-limits by request burst, not by simple domain block (verified
+// directly: a full-speed 135-item run tripped their "bxpunish" anti-bot
+// redirect on every link, including ones that had worked moments earlier;
+// the block cleared on its own within minutes). Pacing requests to this one
+// domain avoids re-triggering it — other sites (Amazon, Israeli retailers)
+// showed no such behavior, so there's no need to slow those down too.
+const ALIEXPRESS_PACE_MS = 3000;
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function main() {
   logScriptOutput('backfillCatalogImages');
 
@@ -45,6 +56,9 @@ async function main() {
 
   let updated = 0, noImageFound = 0, deadLink = 0;
   for (const gift of gifts) {
+    const isAliExpress = gift.source_url.includes('aliexpress');
+    if (isAliExpress) await sleep(ALIEXPRESS_PACE_MS);
+
     const live = await isUrlLive(gift.source_url);
     if (!live) { console.log(`  skip (dead link): ${gift.title}`); deadLink++; continue; }
 
